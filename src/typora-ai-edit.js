@@ -82,6 +82,21 @@
         shortcutLabel: "快捷键设置",
         shortcutQA: "AI 问答",
         shortcutHint: "点击输入框后按下快捷键组合即可录入",
+        providerLabel: "API 提供方",
+        providerChatGPT: "ChatGPT OAuth 登录",
+        providerOpenAI: "OpenAI 兼容登录",
+        oauthConnected: "已连接",
+        oauthDisconnected: "未连接 — 请通过 oauth-cli-kit 登录",
+        apiUrl: "API 地址",
+        apiKey: "API Key",
+        modelsInput: "模型列表（逗号分隔）",
+        saveAndTest: "保存并测试",
+        testing: "正在测试模型\u2026",
+        testDone: " 个模型可用",
+        allUnavailable: "所有模型不可用，请检查 API 地址或 Key",
+        modelUnavailable: "\u2717 ",
+        webNotSupported: "当前模型不支持联网搜索",
+        visionNotSupported: "当前模型不支持图片解析",
         stop: "停止",
         loaded: "插件已加载。右键选中文字即可使用 AI 编辑功能。",
       }
@@ -156,13 +171,35 @@
         shortcutLabel: "Keyboard Shortcuts",
         shortcutQA: "AI Q&A",
         shortcutHint: "Click the input field, then press the shortcut key combination",
+        providerLabel: "API Provider",
+        providerChatGPT: "ChatGPT OAuth Login",
+        providerOpenAI: "OpenAI Compatible",
+        oauthConnected: "Connected",
+        oauthDisconnected: "Not connected \u2014 please log in via oauth-cli-kit",
+        apiUrl: "API URL",
+        apiKey: "API Key",
+        modelsInput: "Models (comma-separated)",
+        saveAndTest: "Save & Test",
+        testing: "Testing models\u2026",
+        testDone: " model(s) available",
+        allUnavailable: "All models unavailable \u2014 please check API URL or Key",
+        modelUnavailable: "\u2717 ",
+        webNotSupported: "Current model does not support web search",
+        visionNotSupported: "Current model does not support image analysis",
         stop: "Stop",
         loaded: "Plugin loaded. Right-click on selected text to use AI editing features.",
       };
 
   const DEFAULT_CONFIG = {
+    provider: "chatgpt",
     model: "gpt-5.4",
     web_search: false,
+    openai_compat: {
+      base_url: "",
+      api_key: "",
+      models_input: "",
+      models: [],
+    },
     models: [
       "gpt-5.4",
       "gpt-5.4-mini",
@@ -236,6 +273,7 @@
           ...parsed,
           prompts: { ...DEFAULT_CONFIG.prompts, ...(parsed.prompts || {}) },
           shortcuts: { ...DEFAULT_CONFIG.shortcuts, ...(parsed.shortcuts || {}) },
+          openai_compat: { ...DEFAULT_CONFIG.openai_compat, ...(parsed.openai_compat || {}) },
         };
       }
     } catch (e) {
@@ -553,6 +591,207 @@
     return await parseSSE(resp);
   }
 
+  // ===================== OpenAI Compatible API =====================
+
+  async function callOpenAICompatAPI(systemPrompt, userPrompt, config, imageDataUrl) {
+    var oc = config.openai_compat || {};
+    if (!oc.base_url || !oc.api_key) throw new Error("OpenAI Compatible API not configured");
+
+    currentAbort = new AbortController();
+
+    var url = oc.base_url.replace(/\/+$/, "") + "/chat/completions";
+    var headers = {
+      Authorization: "Bearer " + oc.api_key,
+      "Content-Type": "application/json",
+      accept: "text/event-stream",
+    };
+
+    var userContent;
+    if (imageDataUrl) {
+      userContent = [
+        { type: "text", text: userPrompt },
+        { type: "image_url", image_url: { url: imageDataUrl } },
+      ];
+    } else {
+      userContent = userPrompt;
+    }
+
+    var body = {
+      model: config.model,
+      stream: true,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+    };
+
+    if (config.web_search) {
+      body.tools = [{ type: "function", function: { name: "web_search", description: "Search the web", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } } }];
+      body.tool_choice = "auto";
+    }
+
+    var resp = await fetch(url, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(body),
+      signal: currentAbort.signal,
+    });
+
+    if (!resp.ok) {
+      var errText = await resp.text().catch(function () { return ""; });
+      throw new Error("API " + resp.status + ": " + errText.slice(0, 200));
+    }
+
+    return await parseOpenAISSE(resp);
+  }
+
+  async function parseOpenAISSE(resp) {
+    var reader = resp.body.getReader();
+    var decoder = new TextDecoder();
+    var buf = "";
+    var result = "";
+
+    try {
+      for (;;) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += decoder.decode(chunk.value, { stream: true });
+
+        var parts = buf.split("\n");
+        buf = parts.pop();
+
+        for (var i = 0; i < parts.length; i++) {
+          var line = parts[i].trim();
+          if (!line.startsWith("data:")) continue;
+          var data = line.slice(5).trim();
+          if (!data || data === "[DONE]") continue;
+
+          try {
+            var ev = JSON.parse(data);
+            if (ev.choices && ev.choices[0] && ev.choices[0].delta && ev.choices[0].delta.content) {
+              result += ev.choices[0].delta.content;
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      if (e.name === "AbortError") throw e;
+      throw e;
+    }
+    return result;
+  }
+
+  // ===================== Unified API entry =====================
+
+  function callAPI(systemPrompt, userPrompt, config, imageDataUrl) {
+    if (config.provider === "openai_compat") {
+      return callOpenAICompatAPI(systemPrompt, userPrompt, config, imageDataUrl);
+    }
+    return callCodexAPI(systemPrompt, userPrompt, config, imageDataUrl);
+  }
+
+  function getModelCapabilities(cfg) {
+    if (cfg.provider !== "openai_compat") {
+      return { available: true, web_search: true, vision: true };
+    }
+    var oc = cfg.openai_compat || {};
+    var models = oc.models || [];
+    for (var i = 0; i < models.length; i++) {
+      if (models[i].name === cfg.model) return models[i];
+    }
+    return { available: false, web_search: false, vision: false };
+  }
+
+  // ===================== Model Testing =====================
+
+  async function testOpenAIModels(baseUrl, apiKey, modelNames) {
+    var url = baseUrl.replace(/\/+$/, "");
+    var headers = { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" };
+    var results = [];
+
+    var availableSet = {};
+    try {
+      var resp = await fetch(url + "/models", { headers: { Authorization: "Bearer " + apiKey } });
+      if (resp.ok) {
+        var data = await resp.json();
+        if (data.data) {
+          for (var i = 0; i < data.data.length; i++) {
+            availableSet[data.data[i].id] = true;
+          }
+        }
+      }
+    } catch (_) {}
+
+    var hasModelsEndpoint = Object.keys(availableSet).length > 0;
+
+    for (var n = 0; n < modelNames.length; n++) {
+      var name = modelNames[n].trim();
+      if (!name) continue;
+      var entry = { name: name, available: false, web_search: false, vision: false };
+
+      if (hasModelsEndpoint && !availableSet[name]) {
+        results.push(entry);
+        continue;
+      }
+
+      try {
+        var testResp = await fetch(url + "/chat/completions", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({
+            model: name, stream: false, max_tokens: 1,
+            messages: [{ role: "user", content: "hi" }],
+          }),
+        });
+        if (testResp.ok) {
+          entry.available = true;
+        } else {
+          results.push(entry);
+          continue;
+        }
+      } catch (_) {
+        results.push(entry);
+        continue;
+      }
+
+      try {
+        var toolResp = await fetch(url + "/chat/completions", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({
+            model: name, stream: false, max_tokens: 1,
+            messages: [{ role: "user", content: "hi" }],
+            tools: [{ type: "function", function: { name: "test", description: "t", parameters: { type: "object", properties: {} } } }],
+          }),
+        });
+        entry.web_search = toolResp.ok;
+      } catch (_) {
+        entry.web_search = false;
+      }
+
+      try {
+        var imgResp = await fetch(url + "/chat/completions", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({
+            model: name, stream: false, max_tokens: 1,
+            messages: [{ role: "user", content: [
+              { type: "text", text: "describe" },
+              { type: "image_url", image_url: { url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" } },
+            ] }],
+          }),
+        });
+        entry.vision = imgResp.ok;
+      } catch (_) {
+        entry.vision = false;
+      }
+
+      results.push(entry);
+    }
+
+    return results;
+  }
+
   function abortCurrentRequest() {
     if (currentAbort) {
       currentAbort.abort();
@@ -729,7 +968,9 @@
   function buildMenuHTML(cfg, hasSel, hasImage) {
     var html = "";
 
-    if (hasImage) {
+    var caps = getModelCapabilities(cfg);
+
+    if (hasImage && caps.vision) {
       html +=
         '<div class="ai-menu-item" data-action="describe_image">' +
         '<span class="ai-menu-icon">🖼</span>' + escHTML(L.describeImage) + '</div>';
@@ -792,22 +1033,34 @@
     html += '<span class="ai-menu-icon">⚙</span>' + escHTML(L.aiModel);
     html += '<span class="ai-menu-arrow">▸</span>';
     html += '<div class="ai-menu-submenu">';
-    for (var i = 0; i < cfg.models.length; i++) {
-      var m = cfg.models[i];
-      var ck = m === cfg.model ? "✓ " : "\u2003";
-      html +=
-        '<div class="ai-menu-item" data-action="set-model" data-model="' +
-        m +
-        '">' +
-        ck +
-        m +
-        "</div>";
+
+    if (cfg.provider === "openai_compat") {
+      var ocModels = (cfg.openai_compat && cfg.openai_compat.models) || [];
+      for (var i = 0; i < ocModels.length; i++) {
+        var om = ocModels[i];
+        var ck = om.name === cfg.model ? "\u2713 " : "\u2003";
+        if (!om.available) {
+          html += '<div class="ai-menu-item disabled">' +
+            L.modelUnavailable + escHTML(om.name) + "</div>";
+        } else {
+          html += '<div class="ai-menu-item" data-action="set-model" data-model="' +
+            escHTML(om.name) + '">' + ck + escHTML(om.name) + "</div>";
+        }
+      }
+    } else {
+      for (var i = 0; i < cfg.models.length; i++) {
+        var m = cfg.models[i];
+        var ck = m === cfg.model ? "\u2713 " : "\u2003";
+        html += '<div class="ai-menu-item" data-action="set-model" data-model="' +
+          m + '">' + ck + m + "</div>";
+      }
     }
     html += "</div></div>";
 
-    var wc = cfg.web_search ? "✓ " : "\u2003";
+    var webDisabled = cfg.provider === "openai_compat" && !caps.web_search;
+    var wc = cfg.web_search && !webDisabled ? "\u2713 " : "\u2003";
     html +=
-      '<div class="ai-menu-item" data-action="toggle-web">' +
+      '<div class="ai-menu-item' + (webDisabled ? " disabled" : "") + '" data-action="toggle-web">' +
       '<span class="ai-menu-icon">🌐</span>' +
       wc +
       escHTML(L.aiWebSearch) + "</div>";
@@ -902,6 +1155,11 @@
       saveConfig(cfg);
       showToast(L.modelSwitched + cfg.model, "success");
     } else if (action === "toggle-web") {
+      var mc = getModelCapabilities(cfg);
+      if (cfg.provider === "openai_compat" && !mc.web_search) {
+        showToast(L.webNotSupported, "info");
+        return;
+      }
       cfg.web_search = !cfg.web_search;
       saveConfig(cfg);
       showToast(cfg.web_search ? L.webSearchOn : L.webSearchOff, "success");
@@ -950,6 +1208,8 @@
     overlay.className = "ai-edit-overlay";
 
     var title = withContext ? L.optimizeCtxTitle : L.optimizeTitle;
+    var mc = getModelCapabilities(cfg);
+    var webDisabled = cfg.provider === "openai_compat" && !mc.web_search;
 
     overlay.innerHTML =
       '<div class="ai-prompt-panel">' +
@@ -961,8 +1221,9 @@
       "<label>" + escHTML(L.extraLabel) + "</label>" +
       '<textarea id="ai-prompt-input" rows="4" placeholder="' + escHTML(L.extraPlaceholder) + '"></textarea>' +
       '<div class="ai-prompt-options">' +
-      '<label class="ai-prompt-checkbox"><input type="checkbox" id="ai-prompt-web" ' +
-      (cfg.web_search ? "checked" : "") +
+      '<label class="ai-prompt-checkbox" style="' + (webDisabled ? "opacity:.4" : "") + '"><input type="checkbox" id="ai-prompt-web" ' +
+      (cfg.web_search && !webDisabled ? "checked" : "") +
+      (webDisabled ? " disabled" : "") +
       "> " + escHTML(L.webSearch) + "</label>" +
       "</div>" +
       "</div>" +
@@ -1019,6 +1280,9 @@
     overlay.id = "ai-edit-prompt-dialog";
     overlay.className = "ai-edit-overlay";
 
+    var mc = getModelCapabilities(cfg);
+    var webDisabled = cfg.provider === "openai_compat" && !mc.web_search;
+
     overlay.innerHTML =
       '<div class="ai-prompt-panel">' +
       '<div class="ai-edit-panel-header">' +
@@ -1029,8 +1293,9 @@
       "<label>" + escHTML(L.imgLabel) + "</label>" +
       '<textarea id="ai-prompt-input" rows="4" placeholder="' + escHTML(L.imgPlaceholder) + '"></textarea>' +
       '<div class="ai-prompt-options">' +
-      '<label class="ai-prompt-checkbox"><input type="checkbox" id="ai-prompt-web" ' +
-      (cfg.web_search ? "checked" : "") +
+      '<label class="ai-prompt-checkbox" style="' + (webDisabled ? "opacity:.4" : "") + '"><input type="checkbox" id="ai-prompt-web" ' +
+      (cfg.web_search && !webDisabled ? "checked" : "") +
+      (webDisabled ? " disabled" : "") +
       "> " + escHTML(L.webSearch) + "</label>" +
       "</div>" +
       "</div>" +
@@ -1108,7 +1373,7 @@
     var toast = showProgressToast(L.analyzing);
 
     try {
-      var result = await callCodexAPI(systemPrompt, userPrompt, cfg, imageUrl);
+      var result = await callAPI(systemPrompt, userPrompt, cfg, imageUrl);
       toast.remove();
       if (result && result.trim()) {
         showImageResultDialog(result.trim());
@@ -1237,6 +1502,9 @@
     if (existing) existing.remove();
 
     var cfg = loadConfig();
+    var mc = getModelCapabilities(cfg);
+    var webDisabled = cfg.provider === "openai_compat" && !mc.web_search;
+
     var overlay = document.createElement("div");
     overlay.id = "ai-edit-prompt-dialog";
     overlay.className = "ai-edit-overlay";
@@ -1251,8 +1519,9 @@
       "<label>" + escHTML(L.qaLabel) + "</label>" +
       '<textarea id="ai-qa-input" rows="5" placeholder="' + escHTML(L.qaPlaceholder) + '"></textarea>' +
       '<div class="ai-prompt-options">' +
-      '<label class="ai-prompt-checkbox"><input type="checkbox" id="ai-qa-web" ' +
-      (cfg.web_search ? "checked" : "") +
+      '<label class="ai-prompt-checkbox" style="' + (webDisabled ? "opacity:.4" : "") + '"><input type="checkbox" id="ai-qa-web" ' +
+      (cfg.web_search && !webDisabled ? "checked" : "") +
+      (webDisabled ? " disabled" : "") +
       "> " + escHTML(L.webSearch) + "</label>" +
       '<label class="ai-prompt-checkbox" style="margin-left:16px"><input type="checkbox" id="ai-qa-ctx"> ' +
       escHTML(L.qaIncludeDoc) + "</label>" +
@@ -1319,7 +1588,7 @@
     var toast = showProgressToast(L.qaAsking);
 
     try {
-      var result = await callCodexAPI(systemPrompt, userPrompt, cfg);
+      var result = await callAPI(systemPrompt, userPrompt, cfg);
       toast.remove();
       if (result && result.trim()) {
         insertQAResponse(result.trim());
@@ -1396,7 +1665,7 @@
     var toast = showProgressToast(L.optimizing);
 
     try {
-      var result = await callCodexAPI(prompts.system, userPrompt, cfg);
+      var result = await callAPI(prompts.system, userPrompt, cfg);
       if (result && result.trim()) {
         var ok = restoreAndReplace(result.trim());
         toast.remove();
@@ -1429,6 +1698,25 @@
     overlay.id = "ai-edit-settings";
     overlay.className = "ai-edit-overlay";
 
+    var oauthOk = false;
+    try { oauthOk = !!readToken(); } catch (_) {}
+
+    var ocModelsHtml = "";
+    var ocModels = (cfg.openai_compat && cfg.openai_compat.models) || [];
+    if (ocModels.length > 0) {
+      ocModelsHtml = '<div class="ai-edit-hint" style="margin-top:8px">';
+      for (var mi = 0; mi < ocModels.length; mi++) {
+        var mm = ocModels[mi];
+        var badge = mm.available ? "\u2713" : "\u2717";
+        var ws = mm.web_search ? " \uD83C\uDF10" : "";
+        var vs = mm.vision ? " \uD83D\uDDBC" : "";
+        ocModelsHtml += '<div style="font-size:12px;margin:2px 0;color:' +
+          (mm.available ? "#0d904f" : "#d93025") + '">' +
+          badge + " " + escHTML(mm.name) + ws + vs + "</div>";
+      }
+      ocModelsHtml += "</div>";
+    }
+
     overlay.innerHTML =
       '<div class="ai-edit-panel">' +
       '<div class="ai-edit-panel-header">' +
@@ -1436,6 +1724,38 @@
       '<button class="ai-edit-close" data-action="close">&times;</button>' +
       "</div>" +
       '<div class="ai-edit-panel-body">' +
+
+      "<h4>" + escHTML(L.providerLabel) + "</h4>" +
+      '<select id="ai-s-provider" class="ai-select">' +
+      '<option value="chatgpt"' + (cfg.provider !== "openai_compat" ? " selected" : "") + '>' + escHTML(L.providerChatGPT) + '</option>' +
+      '<option value="openai_compat"' + (cfg.provider === "openai_compat" ? " selected" : "") + '>' + escHTML(L.providerOpenAI) + '</option>' +
+      '</select>' +
+
+      '<div id="ai-s-chatgpt-section"' + (cfg.provider === "openai_compat" ? ' style="display:none"' : '') + '>' +
+      '<div class="ai-provider-status" style="margin:8px 0;font-size:13px;color:' +
+      (oauthOk ? "#0d904f" : "#d93025") + '">' +
+      (oauthOk ? "\u2713 " + escHTML(L.oauthConnected) : "\u2717 " + escHTML(L.oauthDisconnected)) +
+      "</div>" +
+      '</div>' +
+
+      '<div id="ai-s-openai-section"' + (cfg.provider !== "openai_compat" ? ' style="display:none"' : '') + '>' +
+      "<label>" + escHTML(L.apiUrl) + "</label>" +
+      '<input type="text" id="ai-s-oc-url" class="ai-text-input" placeholder="https://api.example.com/v1" value="' +
+      escHTML(cfg.openai_compat.base_url || "") + '" />' +
+      "<label>" + escHTML(L.apiKey) + "</label>" +
+      '<input type="password" id="ai-s-oc-key" class="ai-text-input" value="' +
+      escHTML(cfg.openai_compat.api_key || "") + '" />' +
+      "<label>" + escHTML(L.modelsInput) + "</label>" +
+      '<input type="text" id="ai-s-oc-models" class="ai-text-input" placeholder="gpt-4o, deepseek-v3, claude-3" value="' +
+      escHTML(cfg.openai_compat.models_input || "") + '" />' +
+      '<div style="margin-top:10px">' +
+      '<button class="ai-btn primary" data-action="test-models">' + escHTML(L.saveAndTest) + '</button>' +
+      '</div>' +
+      ocModelsHtml +
+      '</div>' +
+
+      '<div class="ai-menu-sep" style="margin:16px 0"></div>' +
+
       "<h4>" + escHTML(L.feat1) + "</h4>" +
       "<label>" + escHTML(L.sysPrompt) + "</label>" +
       '<textarea id="ai-s-opt-sys" rows="3">' +
@@ -1503,6 +1823,13 @@
 
     document.body.appendChild(overlay);
 
+    var providerSel = document.getElementById("ai-s-provider");
+    providerSel.addEventListener("change", function () {
+      var isCG = providerSel.value !== "openai_compat";
+      document.getElementById("ai-s-chatgpt-section").style.display = isCG ? "" : "none";
+      document.getElementById("ai-s-openai-section").style.display = isCG ? "none" : "";
+    });
+
     overlay.addEventListener("click", function (e) {
       const btn = e.target.closest("[data-action]");
       if (!btn) {
@@ -1512,7 +1839,42 @@
       const act = btn.dataset.action;
       if (act === "close") {
         overlay.remove();
+      } else if (act === "test-models") {
+        var testUrl = document.getElementById("ai-s-oc-url").value.trim();
+        var testKey = document.getElementById("ai-s-oc-key").value.trim();
+        var testInput = document.getElementById("ai-s-oc-models").value.trim();
+        if (!testUrl || !testKey || !testInput) return;
+        var names = testInput.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+        var toast = showProgressToast(L.testing);
+        testOpenAIModels(testUrl, testKey, names).then(function (results) {
+          toast.remove();
+          cfg.openai_compat.base_url = testUrl;
+          cfg.openai_compat.api_key = testKey;
+          cfg.openai_compat.models_input = testInput;
+          cfg.openai_compat.models = results;
+          var avail = results.filter(function (r) { return r.available; });
+          if (avail.length > 0) {
+            cfg.provider = "openai_compat";
+            cfg.model = avail[0].name;
+            showToast(avail.length + L.testDone, "success");
+          } else {
+            showToast(L.allUnavailable, "error", 5000);
+          }
+          saveConfig(cfg);
+          overlay.remove();
+          showSettingsPanel();
+        }).catch(function (err) {
+          toast.remove();
+          showToast(L.allUnavailable + " (" + err.message + ")", "error", 5000);
+        });
+        return;
       } else if (act === "save") {
+        cfg.provider = document.getElementById("ai-s-provider").value;
+        if (cfg.provider === "openai_compat") {
+          cfg.openai_compat.base_url = document.getElementById("ai-s-oc-url").value.trim();
+          cfg.openai_compat.api_key = document.getElementById("ai-s-oc-key").value.trim();
+          cfg.openai_compat.models_input = document.getElementById("ai-s-oc-models").value.trim();
+        }
         cfg.prompts.optimize.system =
           document.getElementById("ai-s-opt-sys").value;
         cfg.prompts.optimize.user =
@@ -1689,6 +2051,17 @@
       ".ai-result-panel{width:560px}",
       ".ai-result-panel textarea{min-height:200px}",
 
+      /* Provider select & text input */
+      ".ai-select{width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid #ddd;border-radius:6px;",
+      "font-size:13px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#fff;",
+      "cursor:pointer;transition:border-color .2s;outline:none;margin:4px 0}",
+      ".ai-select:focus{border-color:#1a73e8}",
+      ".ai-text-input{width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid #ddd;border-radius:6px;",
+      "font-size:13px;font-family:SFMono-Regular,Menlo,monospace;transition:border-color .2s;outline:none;margin:2px 0}",
+      ".ai-text-input:focus{border-color:#1a73e8}",
+      ".ai-provider-status{padding:4px 0}",
+      ".ai-menu-item.disabled{opacity:.4;cursor:default;pointer-events:none}",
+
       /* Shortcut config */
       ".ai-shortcut-row{display:flex;align-items:center;gap:12px;margin:8px 0}",
       ".ai-shortcut-row label{flex:0 0 160px;font-size:13px;color:#555;font-weight:500;margin:0}",
@@ -1715,6 +2088,10 @@
       ".ai-shortcut-row label{color:#aaa}",
       ".ai-shortcut-input{background:#333;border-color:#555;color:#ddd}",
       ".ai-shortcut-input:focus{border-color:#4a9eff;box-shadow:0 0 0 2px rgba(74,158,255,.2);background:#3a3a3a}",
+      ".ai-select{background:#333;border-color:#555;color:#ddd}",
+      ".ai-select:focus{border-color:#4a9eff}",
+      ".ai-text-input{background:#333;border-color:#555;color:#ddd}",
+      ".ai-text-input:focus{border-color:#4a9eff}",
       "}",
     ].join("\n");
     document.head.appendChild(css);

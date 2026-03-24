@@ -1,19 +1,21 @@
 # Typora AI Edit
 
-为 macOS 上的 [Typora](https://typora.io/) Markdown 编辑器开发的轻量级 AI 编辑插件，通过 ChatGPT Plus 订阅的 AI 能力，实现选中文字的智能优化。
+为 macOS 上的 [Typora](https://typora.io/) Markdown 编辑器开发的轻量级 AI 编辑插件，支持 ChatGPT Plus OAuth 和任意 OpenAI 兼容 API，实现选中文字的智能优化。
 
 ## 功能
 
+- **多 Provider 支持** — 在设置面板中选择 ChatGPT OAuth 登录或 OpenAI 兼容登录（自定义 API 地址、Key、模型）
+- **自动模型测试** — 保存配置后自动测试每个模型的可用性、联网搜索支持和图片解析能力
 - **AI 优化选中文字** — 选中文字后右键，一键润色优化
 - **AI 优化（参考全文）** — 结合全文语境，对选中部分进行风格一致的优化
-- **AI 图片解读** — 右键点击图片，AI 自动分析并生成详细描述
+- **AI 图片解读** — 右键点击图片，AI 自动分析并生成详细描述（不支持视觉的模型自动隐藏此功能）
 - **图片缩放** — 右键图片可选择显示大小（100% / 75% / 50% / 33% / 25% / 10%）
 - **AI 问答** — 在文档中直接向 AI 提问，弹出输入框输入问题，可选联网搜索和包含全文上下文，回答以 Markdown 引用格式插入
 - **可配置快捷键** — 在设置面板中自定义 AI 问答快捷键（默认：`⌘E`）
 - **自定义指示** — 每次 AI 操作前可输入额外要求（如"缩短到100字"、"关注图中数据"等）
 - **自动语言检测** — 根据系统语言自动切换中文或英文界面
-- **模型切换** — 右键子菜单切换 GPT-5.4 / GPT-5.4-mini 等多种模型
-- **联网搜索** — 可选开启，让 AI 参考互联网信息
+- **模型切换** — 右键子菜单切换模型，不可用的模型显示 ✗ 标记
+- **联网搜索** — 可选开启，让 AI 参考互联网信息（不支持的模型自动灰化）
 - **停止生成** — AI 处理过程中可随时点击停止
 - **提示词自定义** — 通过设置面板可视化编辑 System / User Prompt
 - **剪切 / 复制 / 粘贴** — 保留常规编辑功能
@@ -22,10 +24,11 @@
 ## 前置条件
 
 - macOS + [Typora](https://typora.io/)（基于 Electron）
-- ChatGPT Plus 订阅账号
-- 通过 [oauth-cli-kit](https://pypi.org/project/oauth-cli-kit/) 完成 OAuth 登录（Token 持久化于本地）
+- **方案 A: ChatGPT Plus** — 通过 [oauth-cli-kit](https://pypi.org/project/oauth-cli-kit/) 完成 OAuth 登录
+- **方案 B: OpenAI 兼容 API** — 任意兼容 API 端点 + API Key（如 OpenAI、Azure、本地 LLM 等）
 
 ```bash
+# ChatGPT Plus 用户：
 pip install oauth-cli-kit
 # 按照 oauth-cli-kit 文档完成 ChatGPT OAuth 登录
 ```
@@ -122,7 +125,7 @@ sudo bash bin/uninstall.sh
 | 模块 | 实现方式 |
 |------|---------|
 | 脚本注入 | 修改 Typora `index.html`，追加 `<script>` 标签 |
-| AI 接口 | ChatGPT Codex Responses API（SSE 流式） |
+| AI 接口 | ChatGPT Codex Responses API 或 OpenAI 兼容 `/v1/chat/completions`（SSE 流式） |
 | 认证 | 读取 `oauth-cli-kit` 本地 Token 文件 |
 | 编辑器交互 | `window.getSelection()` + `document.execCommand("insertText")` |
 | 全文获取 | `window.File.editor.getMarkdown()`（Typora 内部 API） |
@@ -132,6 +135,17 @@ sudo bash bin/uninstall.sh
 | 右键菜单 | 拦截 `contextmenu` 事件，自定义 HTML 浮层 |
 
 ## 更新日志
+
+### v0.5.0 (2026-03-24)
+
+- **新增：多 Provider 支持** — 在设置面板中选择 ChatGPT OAuth 或 OpenAI 兼容 API
+  - OpenAI 兼容：输入 API 地址、API Key 和模型名（逗号分隔）
+  - 「保存并测试」按钮自动验证每个模型的可用性、联网搜索（tools）和图片解析（vision）能力
+  - ChatGPT OAuth 显示连接状态；OpenAI 兼容显示模型测试结果
+- **新增：能力感知 UI** — 界面根据模型能力自动调整
+  - 不支持视觉的模型：图片解读菜单自动隐藏
+  - 不支持联网的模型：联网搜索开关/复选框自动灰化
+  - 不可用的模型在子菜单中显示 ✗ 标记
 
 ### v0.4.0 (2026-03-24)
 

@@ -2,20 +2,22 @@
 
 [中文文档](README.zh-CN.md)
 
-A lightweight AI editing plugin for [Typora](https://typora.io/) on macOS. Leverages your ChatGPT Plus subscription to provide intelligent text optimization directly within the editor.
+A lightweight AI editing plugin for [Typora](https://typora.io/) on macOS. Supports ChatGPT Plus OAuth and any OpenAI-compatible API to provide intelligent text optimization directly within the editor.
 
 ## Features
 
+- **Multi-Provider Support** — Choose between ChatGPT OAuth login or any OpenAI-compatible API (custom URL, key, models)
+- **Auto Model Testing** — Automatically tests each model for availability, web search support, and vision (image) capability
 - **AI Text Optimization** — Select text, right-click, and optimize with one click
 - **Context-Aware Optimization** — Optimize selected text with full document context for style consistency
-- **AI Image Description** — Right-click any image to get AI-powered analysis and description
+- **AI Image Description** — Right-click any image to get AI-powered analysis and description (hidden when model lacks vision)
 - **Image Resize** — Right-click image to resize (100% / 75% / 50% / 33% / 25% / 10%)
 - **AI Q&A in Document** — Ask AI questions inline via a prompt dialog; answers are inserted as Markdown blockquotes. Options for web search and full document context
 - **Configurable Shortcuts** — Customize keyboard shortcut for AI Q&A via the settings panel (default: `⌘E`)
 - **Custom Instructions** — Enter additional instructions before each AI action (e.g., "make it more formal", "focus on the chart data")
 - **Auto Language Detection** — Automatically shows Chinese or English UI based on system language
-- **Model Switching** — Switch between GPT-5.4 / GPT-5.4-mini and other models via right-click submenu
-- **Web Search** — Optionally enable web search for AI-assisted tasks
+- **Model Switching** — Switch between models via right-click submenu; unavailable models shown with cross mark
+- **Web Search** — Optionally enable web search for AI-assisted tasks (auto-disabled when model doesn't support it)
 - **Stop Generation** — Cancel ongoing AI processing at any time
 - **Prompt Customization** — Visually edit system/user prompts through the settings panel
 - **Cut / Copy / Paste** — Standard editing operations preserved in the context menu
@@ -24,10 +26,11 @@ A lightweight AI editing plugin for [Typora](https://typora.io/) on macOS. Lever
 ## Prerequisites
 
 - macOS + [Typora](https://typora.io/) (Electron-based)
-- ChatGPT Plus subscription
-- OAuth login via [oauth-cli-kit](https://pypi.org/project/oauth-cli-kit/) (token persisted locally)
+- **Option A: ChatGPT Plus** — OAuth login via [oauth-cli-kit](https://pypi.org/project/oauth-cli-kit/) (token persisted locally)
+- **Option B: OpenAI-compatible API** — Any API endpoint with an API key (e.g., OpenAI, Azure, local LLM)
 
 ```bash
+# For ChatGPT Plus users:
 pip install oauth-cli-kit
 # Follow oauth-cli-kit documentation to complete ChatGPT OAuth login
 ```
@@ -124,7 +127,7 @@ sudo bash bin/uninstall.sh
 | Module | Implementation |
 |--------|---------------|
 | Script Injection | Modify Typora's `index.html` with an additional `<script>` tag |
-| AI API | ChatGPT Codex Responses API (SSE streaming) |
+| AI API | ChatGPT Codex Responses API or OpenAI-compatible `/v1/chat/completions` (SSE streaming) |
 | Authentication | Reads local `oauth-cli-kit` token file |
 | Editor Interaction | `window.getSelection()` + `document.execCommand("insertText")` |
 | Document Content | `window.File.editor.getMarkdown()` (Typora internal API) |
@@ -134,6 +137,17 @@ sudo bash bin/uninstall.sh
 | Context Menu | Intercept `contextmenu` event with custom HTML overlay |
 
 ## Changelog
+
+### v0.5.0 (2026-03-24)
+
+- **New: Multi-Provider Support** — Choose between ChatGPT OAuth or any OpenAI-compatible API in the settings panel
+  - OpenAI-compatible: enter API URL, API Key, and model names (comma-separated)
+  - "Save & Test" button automatically validates each model for availability, web search (tools), and vision (image) support
+  - Connection status shown for ChatGPT OAuth; test results shown for OpenAI-compatible models
+- **New: Capability-aware UI** — Features auto-adapt based on model capabilities
+  - Image description menu hidden when model lacks vision support
+  - Web search toggle/checkbox grayed out when model doesn't support tools
+  - Unavailable models shown with cross mark in the model submenu
 
 ### v0.4.0 (2026-03-24)
 
