@@ -1819,6 +1819,19 @@
 
     var codeCtx = getCodeBlockContext();
 
+    // Save cursor position before dialog steals focus
+    var qaInsertTarget = null;
+    try {
+      var sel = window.getSelection();
+      if (sel && (sel.focusNode || sel.anchorNode)) {
+        var node = sel.focusNode || sel.anchorNode;
+        var el = node.nodeType === 1 ? node : node.parentElement;
+        if (el) {
+          qaInsertTarget = el.closest("[cid]") || el.closest("p") || el.closest("li") || el.closest("h1,h2,h3,h4,h5,h6") || el;
+        }
+      }
+    } catch (_) {}
+
     var cfg = loadConfig();
     var ctxCheckbox = '<label class="ai-prompt-checkbox" style="margin-left:16px"><input type="checkbox" id="ai-qa-ctx"> ' +
       escHTML(L.qaIncludeDoc) + "</label>";
@@ -1867,11 +1880,13 @@
       }
       else if (act === "confirm") {
         var result = stream.getResult().trim();
-        if (result) {
-          insertQAResponse(result);
-          showToast(L.qaDone, "success");
-        }
         overlay.remove();
+        if (result) {
+          setTimeout(function () {
+            insertQAResponse(result, qaInsertTarget);
+            showToast(L.qaDone, "success");
+          }, 100);
+        }
       }
     });
 
@@ -1942,28 +1957,44 @@
     }
   }
 
-  function insertQAResponse(text) {
+  function insertQAResponse(text, targetEl) {
     var lines = text.split("\n");
     var quoted = lines.map(function (l) { return "> " + l; }).join("\n");
     quoted = "\n\n" + quoted + "\n\n";
 
     try {
+      var writeEl = document.getElementById("write");
+      if (writeEl) writeEl.focus();
+
       var sel = window.getSelection();
-      if (sel && sel.rangeCount > 0) {
-        var node = sel.focusNode;
-        var block = node && (node.nodeType === 1 ? node : node.parentElement);
-        if (block) {
-          var p = block.closest("[cid]") || block.closest("p") || block.closest("li") || block;
-          if (p) {
-            var range = document.createRange();
-            range.setStartAfter(p);
-            range.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(range);
-          }
-        }
+      var inserted = false;
+
+      if (targetEl && targetEl.parentNode) {
+        try {
+          var range = document.createRange();
+          range.setStartAfter(targetEl);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          inserted = document.execCommand("insertText", false, quoted);
+        } catch (_) {}
       }
-      document.execCommand("insertText", false, quoted);
+
+      if (!inserted) {
+        if (writeEl) {
+          var range = document.createRange();
+          range.selectNodeContents(writeEl);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        inserted = document.execCommand("insertText", false, quoted);
+      }
+
+      if (!inserted) {
+        writeToClipboard(text);
+        showToast(L.insertFail, "error");
+      }
     } catch (e) {
       console.error("[AI Edit] insertQAResponse:", e);
       writeToClipboard(text);
