@@ -9,7 +9,9 @@ A lightweight AI editing plugin for [Typora](https://typora.io/) on macOS. Lever
 - **AI Text Optimization** — Select text, right-click, and optimize with one click
 - **Context-Aware Optimization** — Optimize selected text with full document context for style consistency
 - **AI Image Description** — Right-click any image to get AI-powered analysis and description
+- **Image Resize** — Right-click image to resize (100% / 75% / 50% / 33% / 25% / 10%)
 - **Custom Instructions** — Enter additional instructions before each AI action (e.g., "make it more formal", "focus on the chart data")
+- **Auto Language Detection** — Automatically shows Chinese or English UI based on system language
 - **Model Switching** — Switch between GPT-5.4 / GPT-5.4-mini and other models via right-click submenu
 - **Web Search** — Optionally enable web search for AI-assisted tasks
 - **Stop Generation** — Cancel ongoing AI processing at any time
@@ -121,9 +123,14 @@ sudo bash bin/uninstall.sh
 
 ## Changelog
 
+### v0.3.1 (2026-03-24)
+
+- **New: Image resize submenu** — Right-click image to resize with 100% / 75% / 50% / 33% / 25% / 10% options; checkmark shows current size
+- **Fix: Web image download** — Web images are now downloaded locally (canvas or Node.js https) and converted to base64 before sending to API, fixing errors with signed/protected URLs
+
 ### v0.3.0 (2026-03-24)
 
-- **New: Auto language detection** — Automatically detects system language; shows Chinese UI (menus, dialogs, toasts, default prompts) on Chinese systems, English on all others
+- **New: Auto language detection** — Automatically detects system language via `navigator.language`; shows Chinese UI (menus, dialogs, toasts, default prompts) on Chinese systems, English on all others
 - Default prompts are also language-aware (Chinese prompts for Chinese users, English for others)
 
 ### v0.2.0 (2026-03-24)
