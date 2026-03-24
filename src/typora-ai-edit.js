@@ -359,6 +359,39 @@
     return null;
   }
 
+  var IMG_MAX_SIZE = 2048;
+  var IMG_QUALITY = 0.8;
+
+  function compressImageDataUrl(dataUrl) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        var w = img.naturalWidth;
+        var h = img.naturalHeight;
+        var maxDim = Math.max(w, h);
+        if (maxDim > IMG_MAX_SIZE) {
+          var scale = IMG_MAX_SIZE / maxDim;
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        var canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        var result = canvas.toDataURL("image/jpeg", IMG_QUALITY);
+        var origKB = Math.round(dataUrl.length * 3 / 4 / 1024);
+        var compKB = Math.round(result.length * 3 / 4 / 1024);
+        console.log("[AI Edit] Image compressed: " + img.naturalWidth + "x" + img.naturalHeight +
+          " -> " + w + "x" + h + ", " + origKB + "KB -> " + compKB + "KB");
+        resolve(result);
+      };
+      img.onerror = function () {
+        resolve(dataUrl);
+      };
+      img.src = dataUrl;
+    });
+  }
+
   function fetchImageAsDataUrl(url) {
     return new Promise(function (resolve, reject) {
       var mod = url.startsWith("https") ? "https" : "http";
@@ -1000,16 +1033,24 @@
       return;
     }
 
+    imageUrl = await compressImageDataUrl(imageUrl);
+
     var prompts = cfg.prompts.describe_image || DEFAULT_CONFIG.prompts.describe_image;
-    var userPrompt = prompts.user;
+    var systemPrompt, userPrompt;
     if (extraPrompt) {
-      userPrompt = L.extraReq + extraPrompt + "\n\n" + userPrompt;
+      systemPrompt = isChinese
+        ? "你是一位智能助手，请根据用户的指示分析图片并回答。"
+        : "You are a helpful assistant. Analyze the image and respond according to the user's instructions.";
+      userPrompt = extraPrompt;
+    } else {
+      systemPrompt = prompts.system;
+      userPrompt = prompts.user;
     }
 
     var toast = showProgressToast(L.analyzing);
 
     try {
-      var result = await callCodexAPI(prompts.system, userPrompt, cfg, imageUrl);
+      var result = await callCodexAPI(systemPrompt, userPrompt, cfg, imageUrl);
       toast.remove();
       if (result && result.trim()) {
         showImageResultDialog(result.trim());

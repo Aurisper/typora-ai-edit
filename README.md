@@ -123,6 +123,11 @@ sudo bash bin/uninstall.sh
 
 ## Changelog
 
+### v0.3.2 (2026-03-24)
+
+- **New: Image compression** — Images are automatically resized (max 2048px) and converted to JPEG (quality 80%) before sending to AI, significantly reducing upload size
+- **Improved: Smart prompt logic for images** — When custom instructions are provided, uses only your instructions as the prompt (no interference from default "describe image" prompts); when left empty, uses the default prompts as before
+
 ### v0.3.1 (2026-03-24)
 
 - **New: Image resize submenu** — Right-click image to resize with 100% / 75% / 50% / 33% / 25% / 10% options; checkmark shows current size
