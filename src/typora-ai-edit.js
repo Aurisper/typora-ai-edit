@@ -1,0 +1,913 @@
+(function () {
+  "use strict";
+
+  const CODEX_URL = "https://chatgpt.com/backend-api/codex/responses";
+  const CONFIG_KEY = "typora-ai-edit-config";
+
+  const DEFAULT_CONFIG = {
+    model: "gpt-5.4",
+    web_search: false,
+    models: [
+      "gpt-5.4",
+      "gpt-5.4-mini",
+      "gpt-5.2",
+      "gpt-5.1",
+      "gpt-5",
+      "gpt-5.3-codex",
+      "gpt-5.2-codex",
+      "gpt-5.1-codex",
+      "gpt-5-codex",
+    ],
+    prompts: {
+      optimize: {
+        system: "你是一位专业的中文编辑，擅长文字润色与优化。",
+        user: "请优化以下文字，保持原意不变，提升表达的流畅性和专业性。只返回优化后的文字，不要添加任何解释。\n\n{selection}",
+      },
+      optimize_with_context: {
+        system:
+          "你是一位专业的中文编辑，擅长在理解全文语境的基础上对局部文字进行润色与优化。",
+        user: "以下是完整文档：\n\n<document>\n{document}\n</document>\n\n请优化其中以下选中的部分，确保优化结果与全文的风格、逻辑、术语保持一致。只返回优化后的文字，不要添加任何解释。\n\n<selection>\n{selection}\n</selection>",
+      },
+    },
+  };
+
+  // ===================== Config =====================
+
+  function loadConfig() {
+    try {
+      const saved = localStorage.getItem(CONFIG_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...DEFAULT_CONFIG,
+          ...parsed,
+          prompts: { ...DEFAULT_CONFIG.prompts, ...(parsed.prompts || {}) },
+        };
+      }
+    } catch (e) {
+      console.error("[AI Edit] loadConfig:", e);
+    }
+    return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  }
+
+  function saveConfig(cfg) {
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+  }
+
+  // ===================== Token =====================
+
+  function getHomePath() {
+    // 1. process.env.HOME
+    try {
+      if (typeof process !== "undefined" && process.env && process.env.HOME) {
+        return process.env.HOME;
+      }
+    } catch (_) {}
+    // 2. Typora _options.appDataPath → extract home
+    try {
+      var adp = window._options && window._options.appDataPath;
+      if (adp) {
+        var m = adp.match(/^(\/Users\/[^/]+)/);
+        if (m) return m[1];
+      }
+    } catch (_) {}
+    // 3. Typora _options.userPath or similar
+    try {
+      if (window._options) {
+        var up = window._options.userPath || window._options.homePath;
+        if (up) return up;
+      }
+    } catch (_) {}
+    // 4. Try reading from bridge
+    try {
+      if (window.bridge && window.bridge.callSync) {
+        var whoami = window.bridge.callSync("controller.runCommandSync", "whoami");
+        if (whoami && typeof whoami === "string") {
+          return "/Users/" + whoami.trim();
+        }
+      }
+    } catch (_) {}
+    // 5. Fallback: derive from document path or __dirname
+    try {
+      var dp = window.dirname || window.__dirname;
+      if (dp) {
+        var um = dp.match(/^(\/Users\/[^/]+)/);
+        if (um) return um[1];
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function getTokenPath() {
+    var home = getHomePath();
+    if (!home) {
+      console.error("[AI Edit] 无法确定用户主目录。可用信息:", {
+        process_env: typeof process !== "undefined" && process.env ? process.env.HOME : "N/A",
+        _options: window._options ? Object.keys(window._options).join(",") : "N/A",
+        bridge: !!window.bridge,
+        reqnode: !!window.reqnode,
+        dirname: window.dirname || window.__dirname || "N/A",
+      });
+    }
+    return (home || "") + "/Library/Application Support/oauth-cli-kit/auth/codex.json";
+  }
+
+  function readFileContent(filePath) {
+    // 方式 1: bridge (macOS)
+    if (window.bridge && window.bridge.callSync) {
+      try {
+        var content = window.bridge.callSync("path.readText", filePath);
+        if (content) return content;
+      } catch (e) {
+        console.warn("[AI Edit] bridge.readText failed:", e);
+      }
+    }
+    // 方式 2: reqnode (Windows/Linux)
+    if (window.reqnode) {
+      try {
+        return window.reqnode("fs").readFileSync(filePath, "utf-8");
+      } catch (e) {
+        console.warn("[AI Edit] reqnode.fs failed:", e);
+      }
+    }
+    // 方式 3: Node.js require
+    try {
+      if (typeof require === "function") {
+        return require("fs").readFileSync(filePath, "utf-8");
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function readToken() {
+    try {
+      var p = getTokenPath();
+      console.log("[AI Edit] Token path:", p);
+      var raw = readFileContent(p);
+      if (!raw) throw new Error("无法读取 token 文件: " + p);
+      var token = JSON.parse(raw);
+      if (token.expires && Date.now() > token.expires) {
+        throw new Error("Token 已过期，请运行 oauth-cli-kit 重新登录");
+      }
+      return token;
+    } catch (e) {
+      console.error("[AI Edit] readToken:", e);
+      showToast("Token 读取失败: " + e.message, "error", 5000);
+      return null;
+    }
+  }
+
+  // ===================== Codex API =====================
+
+  var currentAbort = null;
+
+  async function callCodexAPI(systemPrompt, userPrompt, config) {
+    var token = readToken();
+    if (!token) throw new Error("OAuth Token 不可用");
+
+    currentAbort = new AbortController();
+
+    var headers = {
+      Authorization: "Bearer " + token.access,
+      "chatgpt-account-id": token.account_id,
+      "OpenAI-Beta": "responses=experimental",
+      originator: "typora-ai-edit",
+      "User-Agent": "typora-ai-edit/1.0",
+      accept: "text/event-stream",
+      "content-type": "application/json",
+    };
+
+    var body = {
+      model: config.model,
+      store: false,
+      stream: true,
+      instructions: systemPrompt,
+      input: [
+        {
+          role: "user",
+          content: [{ type: "input_text", text: userPrompt }],
+        },
+      ],
+      include: ["reasoning.encrypted_content"],
+    };
+
+    if (config.web_search) {
+      body.tools = [{ type: "web_search" }];
+      body.tool_choice = "auto";
+    }
+
+    var resp = await fetch(CODEX_URL, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(body),
+      signal: currentAbort.signal,
+    });
+
+    if (!resp.ok) {
+      var errText = await resp.text().catch(function () { return ""; });
+      throw new Error("API " + resp.status + ": " + errText.slice(0, 200));
+    }
+
+    return await parseSSE(resp);
+  }
+
+  function abortCurrentRequest() {
+    if (currentAbort) {
+      currentAbort.abort();
+      currentAbort = null;
+    }
+  }
+
+  async function parseSSE(resp) {
+    var reader = resp.body.getReader();
+    var decoder = new TextDecoder();
+    var buf = "";
+    var result = "";
+
+    try {
+      for (;;) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += decoder.decode(chunk.value, { stream: true });
+
+        var parts = buf.split("\n\n");
+        buf = parts.pop();
+
+        for (var i = 0; i < parts.length; i++) {
+          var data = "";
+          var lines = parts[i].split("\n");
+          for (var j = 0; j < lines.length; j++) {
+            if (lines[j].startsWith("data: ")) data += lines[j].slice(6);
+            else if (lines[j].startsWith("data:")) data += lines[j].slice(5);
+          }
+          data = data.trim();
+          if (!data || data === "[DONE]") continue;
+
+          try {
+            var ev = JSON.parse(data);
+            if (ev.type === "response.output_text.delta" && ev.delta) {
+              result += ev.delta;
+            } else if (
+              ev.type === "error" ||
+              ev.type === "response.failed"
+            ) {
+              throw new Error(
+                "API 错误: " + (ev.message || JSON.stringify(ev)).slice(0, 200)
+              );
+            }
+          } catch (e) {
+            if (e.message && e.message.startsWith("API 错误")) throw e;
+          }
+        }
+      }
+    } catch (e) {
+      if (e.name === "AbortError") {
+        throw e;
+      }
+      throw e;
+    }
+    return result;
+  }
+
+  // ===================== Editor helpers =====================
+
+  let savedSelection = null;
+
+  function getSelectedText() {
+    const sel = window.getSelection();
+    return sel ? sel.toString() : "";
+  }
+
+  function getDocumentText() {
+    try {
+      if (window.File && window.File.editor) {
+        return window.File.editor.getMarkdown();
+      }
+    } catch (_) {}
+    return "";
+  }
+
+  function saveCurrentSelection() {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+      savedSelection = {
+        range: sel.getRangeAt(0).cloneRange(),
+        text: sel.toString(),
+      };
+    }
+  }
+
+  function restoreSelection() {
+    if (!savedSelection) return;
+    try {
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedSelection.range);
+    } catch (e) {
+      console.warn("[AI Edit] restoreSelection:", e);
+    }
+  }
+
+  function restoreAndReplace(newText) {
+    if (!savedSelection) return false;
+    try {
+      restoreSelection();
+      document.execCommand("insertText", false, newText);
+      savedSelection = null;
+      return true;
+    } catch (e) {
+      console.error("[AI Edit] replaceSelection:", e);
+      return false;
+    }
+  }
+
+  // ===================== Toast =====================
+
+  function showToast(msg, type, duration) {
+    if (duration === undefined) duration = 3000;
+    var old = document.getElementById("ai-edit-toast");
+    if (old) old.remove();
+
+    var el = document.createElement("div");
+    el.id = "ai-edit-toast";
+    el.className = "ai-edit-toast ai-edit-toast-" + type;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(function () {
+      el.classList.add("show");
+    });
+
+    if (duration > 0) {
+      setTimeout(function () {
+        el.classList.remove("show");
+        setTimeout(function () {
+          el.remove();
+        }, 300);
+      }, duration);
+    }
+    return el;
+  }
+
+  function showProgressToast(msg) {
+    var old = document.getElementById("ai-edit-toast");
+    if (old) old.remove();
+
+    var el = document.createElement("div");
+    el.id = "ai-edit-toast";
+    el.className = "ai-edit-toast ai-edit-toast-progress";
+
+    var spinner = document.createElement("span");
+    spinner.className = "ai-toast-spinner";
+
+    var text = document.createElement("span");
+    text.textContent = msg;
+
+    var stopBtn = document.createElement("button");
+    stopBtn.className = "ai-toast-stop";
+    stopBtn.textContent = "停止";
+    stopBtn.addEventListener("click", function () {
+      abortCurrentRequest();
+    });
+
+    el.appendChild(spinner);
+    el.appendChild(text);
+    el.appendChild(stopBtn);
+    document.body.appendChild(el);
+    requestAnimationFrame(function () {
+      el.classList.add("show");
+    });
+    return el;
+  }
+
+  // ===================== Context Menu =====================
+
+  let menuEl = null;
+
+  function buildMenuHTML(cfg, hasSel) {
+    var html = "";
+
+    if (hasSel) {
+      html +=
+        '<div class="ai-menu-item" data-action="optimize">' +
+        '<span class="ai-menu-icon">✦</span>AI 优化选中文字</div>';
+      html +=
+        '<div class="ai-menu-item" data-action="optimize_ctx">' +
+        '<span class="ai-menu-icon">✦</span>AI 优化选中文字（参考全文）</div>';
+      html += '<div class="ai-menu-sep"></div>';
+    }
+
+    // 常规编辑操作
+    if (hasSel) {
+      html +=
+        '<div class="ai-menu-item" data-action="cut">' +
+        '<span class="ai-menu-icon">✂</span>剪切' +
+        '<span class="ai-menu-shortcut">⌘X</span></div>';
+      html +=
+        '<div class="ai-menu-item" data-action="copy">' +
+        '<span class="ai-menu-icon">⧉</span>复制' +
+        '<span class="ai-menu-shortcut">⌘C</span></div>';
+    }
+    html +=
+      '<div class="ai-menu-item" data-action="paste">' +
+      '<span class="ai-menu-icon">📋</span>粘贴' +
+      '<span class="ai-menu-shortcut">⌘V</span></div>';
+    html += '<div class="ai-menu-sep"></div>';
+
+    // AI 设置区
+    html += '<div class="ai-menu-item ai-menu-sub" data-action="model-parent">';
+    html += '<span class="ai-menu-icon">⚙</span>AI 模型';
+    html += '<span class="ai-menu-arrow">▸</span>';
+    html += '<div class="ai-menu-submenu">';
+    for (var i = 0; i < cfg.models.length; i++) {
+      var m = cfg.models[i];
+      var ck = m === cfg.model ? "✓ " : "\u2003";
+      html +=
+        '<div class="ai-menu-item" data-action="set-model" data-model="' +
+        m +
+        '">' +
+        ck +
+        m +
+        "</div>";
+    }
+    html += "</div></div>";
+
+    var wc = cfg.web_search ? "✓ " : "\u2003";
+    html +=
+      '<div class="ai-menu-item" data-action="toggle-web">' +
+      '<span class="ai-menu-icon">🌐</span>' +
+      wc +
+      "AI 联网搜索</div>";
+    html += '<div class="ai-menu-sep"></div>';
+    html +=
+      '<div class="ai-menu-item" data-action="settings">' +
+      '<span class="ai-menu-icon">⚙</span>AI 编辑设置…</div>';
+
+    return html;
+  }
+
+  function showMenu(x, y) {
+    hideMenu();
+    const cfg = loadConfig();
+    const hasSel = !!savedSelection && !!savedSelection.text;
+
+    menuEl = document.createElement("div");
+    menuEl.className = "ai-edit-menu";
+    menuEl.innerHTML = buildMenuHTML(cfg, hasSel);
+    document.body.appendChild(menuEl);
+
+    const r = menuEl.getBoundingClientRect();
+    if (x + r.width > window.innerWidth) x = window.innerWidth - r.width - 8;
+    if (y + r.height > window.innerHeight)
+      y = window.innerHeight - r.height - 8;
+    if (x < 0) x = 8;
+    if (y < 0) y = 8;
+    menuEl.style.left = x + "px";
+    menuEl.style.top = y + "px";
+
+    menuEl.addEventListener("click", onMenuClick);
+    setTimeout(function () {
+      document.addEventListener("mousedown", onOutsideClick);
+    }, 0);
+  }
+
+  function hideMenu() {
+    if (menuEl) {
+      menuEl.remove();
+      menuEl = null;
+    }
+    document.removeEventListener("mousedown", onOutsideClick);
+  }
+
+  function onOutsideClick(e) {
+    if (menuEl && !menuEl.contains(e.target)) {
+      hideMenu();
+    }
+  }
+
+  async function onMenuClick(e) {
+    const item = e.target.closest("[data-action]");
+    if (!item) return;
+    if (item.dataset.action === "model-parent") return;
+
+    const action = item.dataset.action;
+    const cfg = loadConfig();
+    hideMenu();
+
+    if (action === "cut") {
+      restoreSelection();
+      document.execCommand("cut");
+      return;
+    } else if (action === "copy") {
+      restoreSelection();
+      document.execCommand("copy");
+      return;
+    } else if (action === "paste") {
+      doPaste();
+      return;
+    } else if (action === "optimize") {
+      showPromptDialog(cfg, false);
+      return;
+    } else if (action === "optimize_ctx") {
+      showPromptDialog(cfg, true);
+      return;
+    } else if (action === "set-model") {
+      cfg.model = item.dataset.model;
+      saveConfig(cfg);
+      showToast("模型已切换: " + cfg.model, "success");
+    } else if (action === "toggle-web") {
+      cfg.web_search = !cfg.web_search;
+      saveConfig(cfg);
+      showToast("联网搜索已" + (cfg.web_search ? "开启" : "关闭"), "success");
+    } else if (action === "settings") {
+      showSettingsPanel();
+    }
+  }
+
+  // ===================== Paste (Electron clipboard) =====================
+
+  function doPaste() {
+    var clipText = null;
+    try {
+      var cb = require("electron").clipboard;
+      clipText = cb.readText();
+    } catch (_) {}
+    if (!clipText && window.reqnode) {
+      try {
+        clipText = window.reqnode("electron").clipboard.readText();
+      } catch (_) {}
+    }
+    if (clipText) {
+      restoreSelection();
+      document.execCommand("insertText", false, clipText);
+    } else {
+      navigator.clipboard
+        .readText()
+        .then(function (text) {
+          restoreSelection();
+          document.execCommand("insertText", false, text);
+        })
+        .catch(function () {
+          showToast("粘贴失败，请使用 ⌘V", "error");
+        });
+    }
+  }
+
+  // ===================== Prompt Dialog =====================
+
+  function showPromptDialog(cfg, withContext) {
+    var existing = document.getElementById("ai-edit-prompt-dialog");
+    if (existing) existing.remove();
+
+    var overlay = document.createElement("div");
+    overlay.id = "ai-edit-prompt-dialog";
+    overlay.className = "ai-edit-overlay";
+
+    var title = withContext ? "AI 优化选中文字（参考全文）" : "AI 优化选中文字";
+
+    overlay.innerHTML =
+      '<div class="ai-prompt-panel">' +
+      '<div class="ai-edit-panel-header">' +
+      "<h3>" + escHTML(title) + "</h3>" +
+      '<button class="ai-edit-close" data-action="close">&times;</button>' +
+      "</div>" +
+      '<div class="ai-prompt-body">' +
+      "<label>额外优化指示（可留空，直接点开始即按默认提示词优化）</label>" +
+      '<textarea id="ai-prompt-input" rows="4" placeholder="例如：请让语气更正式 / 缩短到100字以内 / 改为英文…"></textarea>' +
+      '<div class="ai-prompt-options">' +
+      '<label class="ai-prompt-checkbox"><input type="checkbox" id="ai-prompt-web" ' +
+      (cfg.web_search ? "checked" : "") +
+      "> 联网搜索</label>" +
+      "</div>" +
+      "</div>" +
+      '<div class="ai-edit-panel-footer">' +
+      '<button class="ai-btn secondary" data-action="close">取消</button>' +
+      '<div class="ai-edit-spacer"></div>' +
+      '<button class="ai-btn primary" data-action="go">开始优化</button>' +
+      "</div>" +
+      "</div>";
+
+    document.body.appendChild(overlay);
+
+    var inputEl = document.getElementById("ai-prompt-input");
+    setTimeout(function () { inputEl.focus(); }, 50);
+
+    inputEl.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        doGo();
+      }
+    });
+
+    overlay.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-action]");
+      if (!btn) {
+        if (e.target === overlay) overlay.remove();
+        return;
+      }
+      if (btn.dataset.action === "close") {
+        overlay.remove();
+      } else if (btn.dataset.action === "go") {
+        doGo();
+      }
+    });
+
+    function doGo() {
+      var extraPrompt = document.getElementById("ai-prompt-input").value.trim();
+      var useWeb = document.getElementById("ai-prompt-web").checked;
+      overlay.remove();
+
+      var runCfg = JSON.parse(JSON.stringify(cfg));
+      runCfg.web_search = useWeb;
+      doOptimize(runCfg, withContext, extraPrompt);
+    }
+  }
+
+  // ===================== Optimize =====================
+
+  async function doOptimize(cfg, withContext, extraPrompt) {
+    var key = withContext ? "optimize_with_context" : "optimize";
+    var prompts = cfg.prompts[key];
+    if (!prompts) {
+      showToast("提示词配置缺失", "error");
+      return;
+    }
+    if (!savedSelection || !savedSelection.text) {
+      showToast("请先选中文字", "error");
+      return;
+    }
+
+    var selText = savedSelection.text;
+    var docText = withContext ? getDocumentText() : "";
+    var userPrompt = prompts.user
+      .replace(/\{selection\}/g, selText)
+      .replace(/\{document\}/g, docText);
+
+    if (extraPrompt) {
+      userPrompt = "额外要求: " + extraPrompt + "\n\n" + userPrompt;
+    }
+
+    var toast = showProgressToast("AI 正在优化…");
+
+    try {
+      var result = await callCodexAPI(prompts.system, userPrompt, cfg);
+      if (result && result.trim()) {
+        var ok = restoreAndReplace(result.trim());
+        toast.remove();
+        showToast(ok ? "AI 优化完成" : "替换失败，请重试", ok ? "success" : "error");
+      } else {
+        toast.remove();
+        showToast("AI 返回结果为空", "error");
+      }
+    } catch (e) {
+      toast.remove();
+      if (e.name === "AbortError") {
+        showToast("已停止优化", "info");
+      } else {
+        showToast("优化失败: " + e.message, "error");
+        console.error("[AI Edit]", e);
+      }
+    } finally {
+      currentAbort = null;
+    }
+  }
+
+  // ===================== Settings Panel =====================
+
+  function showSettingsPanel() {
+    const existing = document.getElementById("ai-edit-settings");
+    if (existing) existing.remove();
+
+    const cfg = loadConfig();
+    const overlay = document.createElement("div");
+    overlay.id = "ai-edit-settings";
+    overlay.className = "ai-edit-overlay";
+
+    overlay.innerHTML =
+      '<div class="ai-edit-panel">' +
+      '<div class="ai-edit-panel-header">' +
+      "<h3>AI 编辑设置</h3>" +
+      '<button class="ai-edit-close" data-action="close">&times;</button>' +
+      "</div>" +
+      '<div class="ai-edit-panel-body">' +
+      "<h4>功能一：AI 优化选中文字</h4>" +
+      "<label>System Prompt</label>" +
+      '<textarea id="ai-s-opt-sys" rows="3">' +
+      escHTML(cfg.prompts.optimize.system) +
+      "</textarea>" +
+      "<label>User Prompt</label>" +
+      '<textarea id="ai-s-opt-usr" rows="5">' +
+      escHTML(cfg.prompts.optimize.user) +
+      "</textarea>" +
+      '<p class="ai-edit-hint">可用变量: {selection}</p>' +
+      "<h4>功能二：AI 优化选中文字（参考全文）</h4>" +
+      "<label>System Prompt</label>" +
+      '<textarea id="ai-s-ctx-sys" rows="3">' +
+      escHTML(cfg.prompts.optimize_with_context.system) +
+      "</textarea>" +
+      "<label>User Prompt</label>" +
+      '<textarea id="ai-s-ctx-usr" rows="5">' +
+      escHTML(cfg.prompts.optimize_with_context.user) +
+      "</textarea>" +
+      '<p class="ai-edit-hint">可用变量: {selection}, {document}</p>' +
+      "</div>" +
+      '<div class="ai-edit-panel-footer">' +
+      '<button class="ai-btn secondary" data-action="reset">恢复默认</button>' +
+      '<div class="ai-edit-spacer"></div>' +
+      '<button class="ai-btn secondary" data-action="close">取消</button>' +
+      '<button class="ai-btn primary" data-action="save">保存</button>' +
+      "</div>" +
+      "</div>";
+
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener("click", function (e) {
+      const btn = e.target.closest("[data-action]");
+      if (!btn) {
+        if (e.target === overlay) overlay.remove();
+        return;
+      }
+      const act = btn.dataset.action;
+      if (act === "close") {
+        overlay.remove();
+      } else if (act === "save") {
+        cfg.prompts.optimize.system =
+          document.getElementById("ai-s-opt-sys").value;
+        cfg.prompts.optimize.user =
+          document.getElementById("ai-s-opt-usr").value;
+        cfg.prompts.optimize_with_context.system =
+          document.getElementById("ai-s-ctx-sys").value;
+        cfg.prompts.optimize_with_context.user =
+          document.getElementById("ai-s-ctx-usr").value;
+        saveConfig(cfg);
+        overlay.remove();
+        showToast("设置已保存", "success");
+      } else if (act === "reset") {
+        document.getElementById("ai-s-opt-sys").value =
+          DEFAULT_CONFIG.prompts.optimize.system;
+        document.getElementById("ai-s-opt-usr").value =
+          DEFAULT_CONFIG.prompts.optimize.user;
+        document.getElementById("ai-s-ctx-sys").value =
+          DEFAULT_CONFIG.prompts.optimize_with_context.system;
+        document.getElementById("ai-s-ctx-usr").value =
+          DEFAULT_CONFIG.prompts.optimize_with_context.user;
+        showToast("已恢复默认值（请点保存生效）", "info");
+      }
+    });
+  }
+
+  function escHTML(s) {
+    return s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  // ===================== Styles =====================
+
+  function injectStyles() {
+    const css = document.createElement("style");
+    css.textContent = [
+      /* Toast */
+      ".ai-edit-toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-20px);",
+      "padding:10px 24px;border-radius:8px;font-size:14px;z-index:999999;opacity:0;transition:all .3s;",
+      "pointer-events:none;font-family:-apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.15)}",
+      ".ai-edit-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}",
+      ".ai-edit-toast-info{background:#1a73e8;color:#fff}",
+      ".ai-edit-toast-success{background:#0d904f;color:#fff}",
+      ".ai-edit-toast-error{background:#d93025;color:#fff}",
+      ".ai-edit-toast-progress{background:#1a73e8;color:#fff;pointer-events:auto;cursor:default;",
+      "display:flex;align-items:center;gap:10px}",
+      ".ai-toast-spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);",
+      "border-top-color:#fff;border-radius:50%;animation:ai-spin 0.8s linear infinite;flex-shrink:0}",
+      "@keyframes ai-spin{to{transform:rotate(360deg)}}",
+      ".ai-toast-stop{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);",
+      "color:#fff;padding:2px 12px;border-radius:4px;font-size:12px;cursor:pointer;",
+      "margin-left:6px;transition:background .15s}",
+      ".ai-toast-stop:hover{background:rgba(255,255,255,.35)}",
+
+      /* Context menu */
+      ".ai-edit-menu{position:fixed;z-index:999998;min-width:240px;padding:4px 0;",
+      "background:rgba(255,255,255,.96);backdrop-filter:blur(20px);",
+      "border:1px solid rgba(0,0,0,.12);border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.18);",
+      "font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;color:#222;",
+      "user-select:none;animation:ai-menu-in .12s ease-out}",
+      "@keyframes ai-menu-in{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}",
+      ".ai-menu-item{padding:6px 16px;cursor:pointer;display:flex;align-items:center;position:relative;white-space:nowrap}",
+      ".ai-menu-item:hover{background:rgba(26,115,232,.1)}",
+      ".ai-menu-icon{width:20px;text-align:center;margin-right:6px;font-size:12px}",
+      ".ai-menu-arrow{margin-left:auto;font-size:10px;opacity:.5}",
+      ".ai-menu-shortcut{margin-left:auto;font-size:11px;opacity:.4;padding-left:24px}",
+      ".ai-menu-sep{height:1px;margin:4px 8px;background:rgba(0,0,0,.08)}",
+      ".ai-menu-sub>.ai-menu-submenu{display:none;position:absolute;left:100%;top:-4px;",
+      "min-width:200px;padding:4px 0;background:rgba(255,255,255,.96);backdrop-filter:blur(20px);",
+      "border:1px solid rgba(0,0,0,.12);border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.18)}",
+      ".ai-menu-sub:hover>.ai-menu-submenu{display:block}",
+
+      /* Dark theme */
+      "@media(prefers-color-scheme:dark){",
+      ".ai-edit-menu{background:rgba(40,40,40,.96);border-color:rgba(255,255,255,.12);color:#ddd}",
+      ".ai-menu-item:hover{background:rgba(255,255,255,.1)}",
+      ".ai-menu-sep{background:rgba(255,255,255,.1)}",
+      ".ai-menu-sub>.ai-menu-submenu{background:rgba(40,40,40,.96);border-color:rgba(255,255,255,.12)}",
+      "}",
+
+      /* Settings overlay */
+      ".ai-edit-overlay{position:fixed;top:0;left:0;width:100%;height:100%;",
+      "background:rgba(0,0,0,.4);z-index:999997;display:flex;align-items:center;justify-content:center;",
+      "animation:ai-fade-in .2s}",
+      "@keyframes ai-fade-in{from{opacity:0}to{opacity:1}}",
+      ".ai-edit-panel{background:#fff;border-radius:12px;width:560px;max-height:80vh;",
+      "box-shadow:0 16px 48px rgba(0,0,0,.2);display:flex;flex-direction:column;",
+      "font-family:-apple-system,BlinkMacSystemFont,sans-serif;overflow:hidden}",
+      ".ai-edit-panel-header{display:flex;align-items:center;padding:16px 20px;border-bottom:1px solid #eee}",
+      ".ai-edit-panel-header h3{margin:0;font-size:16px;font-weight:600}",
+      ".ai-edit-close{margin-left:auto;background:none;border:none;font-size:22px;cursor:pointer;color:#999;padding:0 4px}",
+      ".ai-edit-close:hover{color:#333}",
+      ".ai-edit-panel-body{padding:20px;overflow-y:auto;flex:1}",
+      ".ai-edit-panel-body h4{margin:16px 0 8px;font-size:14px;font-weight:600;color:#333}",
+      ".ai-edit-panel-body h4:first-child{margin-top:0}",
+      ".ai-edit-panel-body label{display:block;margin:8px 0 4px;font-size:12px;color:#666;font-weight:500}",
+      ".ai-edit-panel-body textarea{width:100%;box-sizing:border-box;padding:8px 10px;",
+      "border:1px solid #ddd;border-radius:6px;font-size:13px;font-family:SFMono-Regular,Menlo,monospace;",
+      "resize:vertical;line-height:1.5;transition:border-color .2s}",
+      ".ai-edit-panel-body textarea:focus{outline:none;border-color:#1a73e8}",
+      ".ai-edit-hint{font-size:11px;color:#999;margin:4px 0 12px}",
+      ".ai-edit-panel-footer{display:flex;align-items:center;padding:12px 20px;border-top:1px solid #eee;gap:8px}",
+      ".ai-edit-spacer{flex:1}",
+      ".ai-btn{padding:6px 16px;border-radius:6px;font-size:13px;cursor:pointer;border:none;font-weight:500;transition:background .15s}",
+      ".ai-btn.primary{background:#1a73e8;color:#fff}.ai-btn.primary:hover{background:#1557b0}",
+      ".ai-btn.secondary{background:#f1f3f4;color:#333}.ai-btn.secondary:hover{background:#e0e2e3}",
+
+      /* Prompt dialog */
+      ".ai-prompt-panel{background:#fff;border-radius:12px;width:480px;",
+      "box-shadow:0 16px 48px rgba(0,0,0,.2);display:flex;flex-direction:column;",
+      "font-family:-apple-system,BlinkMacSystemFont,sans-serif;overflow:hidden}",
+      ".ai-prompt-body{padding:16px 20px}",
+      ".ai-prompt-body label{display:block;font-size:13px;color:#555;margin-bottom:8px;font-weight:500}",
+      ".ai-prompt-body textarea{width:100%;box-sizing:border-box;padding:10px 12px;",
+      "border:1px solid #ddd;border-radius:8px;font-size:14px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;",
+      "resize:vertical;line-height:1.5;transition:border-color .2s}",
+      ".ai-prompt-body textarea:focus{outline:none;border-color:#1a73e8}",
+      ".ai-prompt-options{margin-top:10px;display:flex;align-items:center}",
+      ".ai-prompt-checkbox{display:flex;align-items:center;font-size:13px;color:#555;cursor:pointer;gap:6px}",
+      ".ai-prompt-checkbox input{margin:0;cursor:pointer}",
+
+      /* Dark settings */
+      "@media(prefers-color-scheme:dark){",
+      ".ai-edit-panel{background:#2a2a2a;color:#ddd}",
+      ".ai-edit-panel-header{border-color:#444}.ai-edit-panel-footer{border-color:#444}",
+      ".ai-edit-panel-body h4{color:#ccc}",
+      ".ai-edit-panel-body label{color:#999}",
+      ".ai-edit-panel-body textarea{background:#333;border-color:#555;color:#ddd}",
+      ".ai-edit-panel-body textarea:focus{border-color:#4a9eff}",
+      ".ai-edit-close:hover{color:#eee}",
+      ".ai-btn.secondary{background:#444;color:#ddd}.ai-btn.secondary:hover{background:#555}",
+      ".ai-prompt-panel{background:#2a2a2a;color:#ddd}",
+      ".ai-prompt-body label{color:#aaa}",
+      ".ai-prompt-body textarea{background:#333;border-color:#555;color:#ddd}",
+      ".ai-prompt-body textarea:focus{border-color:#4a9eff}",
+      ".ai-prompt-checkbox{color:#aaa}",
+      "}",
+    ].join("\n");
+    document.head.appendChild(css);
+  }
+
+  // ===================== Init =====================
+
+  function init() {
+    injectStyles();
+
+    document.addEventListener(
+      "contextmenu",
+      function (e) {
+        var target = e.target;
+        var isEditor =
+          target.closest && (target.closest("#write") || target.closest(".CodeMirror"));
+        if (!isEditor) return;
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        var sel = getSelectedText();
+        if (sel.length > 0) {
+          saveCurrentSelection();
+        } else {
+          savedSelection = null;
+        }
+        showMenu(e.clientX, e.clientY);
+      },
+      true
+    );
+
+    console.log("[AI Edit] Plugin loaded. 右键选中文字即可使用 AI 编辑功能。");
+  }
+
+  if (document.readyState === "complete" || document.readyState === "interactive") {
+    setTimeout(init, 500);
+  } else {
+    window.addEventListener("DOMContentLoaded", function () {
+      setTimeout(init, 500);
+    });
+  }
+})();
