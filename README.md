@@ -1,5 +1,13 @@
 # Typora AI Edit
 
+[![Release](https://img.shields.io/github/v/release/Aurisper/typora-ai-edit?style=flat-square&color=blue)](https://github.com/Aurisper/typora-ai-edit/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square&logo=apple)](https://typora.io/)
+[![Typora](https://img.shields.io/badge/Typora-plugin-8B5CF6?style=flat-square)](https://typora.io/)
+[![OpenAI Compatible](https://img.shields.io/badge/API-OpenAI%20Compatible-412991?style=flat-square&logo=openai)](https://platform.openai.com/)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=flat-square&logo=javascript&logoColor=black)](src/modules/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/Aurisper/typora-ai-edit/pulls)
+
 [中文文档](README.zh-CN.md)
 
 A powerful AI editing plugin for [Typora](https://typora.io/) on macOS — turn Typora into an AI-powered writing & productivity studio.

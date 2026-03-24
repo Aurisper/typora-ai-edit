@@ -1,5 +1,13 @@
 # Typora AI Edit
 
+[![Release](https://img.shields.io/github/v/release/Aurisper/typora-ai-edit?style=flat-square&color=blue)](https://github.com/Aurisper/typora-ai-edit/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square&logo=apple)](https://typora.io/)
+[![Typora](https://img.shields.io/badge/Typora-plugin-8B5CF6?style=flat-square)](https://typora.io/)
+[![OpenAI Compatible](https://img.shields.io/badge/API-OpenAI%20Compatible-412991?style=flat-square&logo=openai)](https://platform.openai.com/)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=flat-square&logo=javascript&logoColor=black)](src/modules/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/Aurisper/typora-ai-edit/pulls)
+
 一款强大的 AI 编辑插件，为 macOS 上的 [Typora](https://typora.io/) 赋能 —— 将 Typora 变成 AI 驱动的写作与生产力工具。
 
 支持 ChatGPT Plus OAuth 和任意 OpenAI 兼容 API。所有操作都在文档内完成 —— AI 输出即原生 Markdown，Typora 即时渲染，随时导出 PDF 分享。
