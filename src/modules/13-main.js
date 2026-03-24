@@ -19,10 +19,18 @@
           saveCurrentSelection(target);
         } else {
           savedSelection = null;
-          var blockEl = findSpecialBlock(target);
+          var blockEl = findSpecialBlock(target) || findFocusedBlock();
           if (blockEl) {
             var cm = getBlockCM(blockEl);
-            if (!cm) {
+            if (cm) {
+              savedSelection = {
+                text: cm.getValue(),
+                isBlock: true,
+                blockCM: cm,
+                blockEl: blockEl,
+                fullBlock: true,
+              };
+            } else {
               var source = getHtmlBlockSource(blockEl);
               if (source) {
                 savedSelection = {

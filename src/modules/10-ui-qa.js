@@ -60,6 +60,7 @@
         if (result && codeCtx) {
           (async function () {
             overlay.remove();
+            await sleep(150);
             var ok = await replaceCodeBlock(codeCtx, result);
             showToast(ok ? L.optDone : L.optReplaceFail, ok ? "success" : "error");
           })();

@@ -137,6 +137,7 @@
         overlay.remove();
         if (result) {
           (async function () {
+            await sleep(150);
             var ok = await restoreAndReplace(result);
             showToast(ok ? L.optDone : L.optReplaceFail, ok ? "success" : "error");
           })();

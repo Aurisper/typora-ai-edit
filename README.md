@@ -195,7 +195,7 @@ sudo bash bin/uninstall.sh
 | Script Injection | Modify Typora's `index.html` with an additional `<script>` tag |
 | AI API | ChatGPT Codex Responses API or OpenAI-compatible `/v1/chat/completions` (SSE streaming) |
 | Authentication | Reads local `oauth-cli-kit` token file or API Key |
-| Editor Interaction | `window.getSelection()` + `document.execCommand("insertText")` |
+| Editor Interaction | `window.getSelection()` + `document.execCommand("insertText")` + CodeMirror API for code blocks |
 | Document Content | `window.File.editor.getMarkdown()` (Typora internal API) |
 | File Reading | `window.bridge.callSync("path.readText")` (macOS) |
 | Config Storage | `localStorage` |
@@ -210,9 +210,15 @@ sudo bash bin/uninstall.sh
 - **New: Modular codebase** — Split the monolithic 2500-line plugin into 13 focused modules under `src/modules/`, each under 300 lines:
   - `01-i18n` / `02-config` / `03-platform` / `04-api` / `05-model-test` / `06-editor` / `07-ui-core` / `08-ui-menu` / `09-ui-dialogs` / `10-ui-qa` / `11-ui-settings` / `12-styles` / `13-main`
 - **New: Build script** — `build.sh` concatenates modules in order, wraps in IIFE, outputs deployable `src/typora-ai-edit.js`
-- **Improved: Code block AI editing** — AI Q&A now auto-detects code blocks (CodeMirror & rendered HTML), injects source code into prompts, and offers a "Replace Code Block" button
+- **Improved: Code block AI editing** — AI Q&A and AI Optimize now fully support code blocks (Mermaid, HTML/SVG, all fenced code):
+  - Auto-detects active code block via CodeMirror API & Typora `.md-focus` class
+  - Injects code block source into AI prompts with specialized coding instructions
+  - Offers "Replace Code Block" button to write AI result back into the block
+  - Re-activates CodeMirror instances after dialog closes for reliable replacement
 - **Improved: HTML block replacement** — File-level Markdown replacement (`fs.writeFileSync` + Typora reload) for reliable rendered HTML block editing
 - **Improved: Streaming dialogs** — All AI operations (Optimize, Image, Q&A) now stream output in the dialog with Stop/Confirm buttons before inserting into the document
+- **Fix: Q&A insert failure** — Saves cursor position before dialog opens; restores focus after overlay removal
+- **Fix: CodeMirror selection detection** — `getSelectedText()` and `saveCurrentSelection()` now reliably detect text selected inside CodeMirror code blocks
 
 ### v0.5.1 (2026-03-24)
 

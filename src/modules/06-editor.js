@@ -22,6 +22,28 @@
     return cmEl && cmEl.CodeMirror ? cmEl.CodeMirror : null;
   }
 
+  async function reactivateBlockCM(blockEl) {
+    if (!blockEl || !blockEl.parentNode) return null;
+    var cm = getBlockCM(blockEl);
+    if (cm) return cm;
+    try {
+      var clickTarget = blockEl.querySelector(".CodeMirror") ||
+        blockEl.querySelector("pre") || blockEl;
+      clickTarget.click();
+      await sleep(200);
+      cm = getBlockCM(blockEl);
+      if (cm) return cm;
+      blockEl.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      blockEl.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      blockEl.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await sleep(300);
+      cm = getBlockCM(blockEl);
+    } catch (e) {
+      console.warn("[AI Edit] reactivateBlockCM:", e);
+    }
+    return cm;
+  }
+
   function getHtmlBlockSource(blockEl) {
     var md = getDocumentText();
     if (!md) return null;
@@ -46,11 +68,42 @@
     return matches[0];
   }
 
+  function findFocusedBlock() {
+    var focused = document.querySelector(".md-fences.md-focus") ||
+      document.querySelector(".md-htmlblock.md-focus") ||
+      document.querySelector(".md-rawblock.md-focus") ||
+      document.querySelector(".md-math-block.md-focus");
+    if (focused) return focused;
+
+    var ae = document.activeElement;
+    if (ae) {
+      var block = findSpecialBlock(ae);
+      if (block) return block;
+      var cmWrap = ae.closest && ae.closest(".CodeMirror");
+      if (cmWrap) {
+        block = findSpecialBlock(cmWrap);
+        if (block) return block;
+      }
+    }
+
+    var focusedCM = document.querySelector(".CodeMirror-focused");
+    if (focusedCM) {
+      var block = findSpecialBlock(focusedCM);
+      if (block) return block;
+    }
+
+    return null;
+  }
+
   function getCodeBlockContext() {
+    var blockEl = null;
+
     var sel = window.getSelection();
     var node = sel && (sel.anchorNode || sel.focusNode);
-    if (!node) return null;
-    var blockEl = findSpecialBlock(node);
+    if (node) blockEl = findSpecialBlock(node);
+
+    if (!blockEl) blockEl = findFocusedBlock();
+
     if (!blockEl) return null;
     var cm = getBlockCM(blockEl);
     if (cm) {
@@ -75,6 +128,7 @@
     var sel = window.getSelection();
     var text = sel ? sel.toString() : "";
     if (text) return text;
+
     if (sel && (sel.anchorNode || sel.focusNode)) {
       var blockEl = findSpecialBlock(sel.anchorNode || sel.focusNode);
       if (blockEl) {
@@ -82,6 +136,13 @@
         if (cm) return cm.getSelection() || "";
       }
     }
+
+    var focusedBlock = findFocusedBlock();
+    if (focusedBlock) {
+      var cm = getBlockCM(focusedBlock);
+      if (cm) return cm.getSelection() || "";
+    }
+
     return "";
   }
 
@@ -98,36 +159,38 @@
     var sel = window.getSelection();
     var node = (sel && (sel.anchorNode || sel.focusNode)) || contextTarget;
 
-    if (node) {
-      var blockEl = findSpecialBlock(node);
-      if (blockEl) {
-        var cm = getBlockCM(blockEl);
-        if (cm) {
-          var cmSel = cm.getSelection();
-          var hasCmSel = cmSel && cmSel.length > 0;
+    var blockEl = null;
+    if (node) blockEl = findSpecialBlock(node);
+    if (!blockEl && contextTarget) blockEl = findSpecialBlock(contextTarget);
+    if (!blockEl) blockEl = findFocusedBlock();
+
+    if (blockEl) {
+      var cm = getBlockCM(blockEl);
+      if (cm) {
+        var cmSel = cm.getSelection();
+        var hasCmSel = cmSel && cmSel.length > 0;
+        savedSelection = {
+          text: hasCmSel ? cmSel : cm.getValue(),
+          isBlock: true,
+          blockCM: cm,
+          blockEl: blockEl,
+          cmFrom: hasCmSel ? cm.getCursor("from") : null,
+          cmTo: hasCmSel ? cm.getCursor("to") : null,
+          fullBlock: !hasCmSel,
+        };
+        return;
+      }
+      if (blockEl.classList.contains("md-htmlblock") || blockEl.classList.contains("md-rawblock")) {
+        var source = getHtmlBlockSource(blockEl);
+        if (source) {
           savedSelection = {
-            text: hasCmSel ? cmSel : cm.getValue(),
+            text: source,
             isBlock: true,
-            blockCM: cm,
+            isRendered: true,
             blockEl: blockEl,
-            cmFrom: hasCmSel ? cm.getCursor("from") : null,
-            cmTo: hasCmSel ? cm.getCursor("to") : null,
-            fullBlock: !hasCmSel,
+            originalSource: source,
           };
           return;
-        }
-        if (blockEl.classList.contains("md-htmlblock") || blockEl.classList.contains("md-rawblock")) {
-          var source = getHtmlBlockSource(blockEl);
-          if (source) {
-            savedSelection = {
-              text: source,
-              isBlock: true,
-              isRendered: true,
-              blockEl: blockEl,
-              originalSource: source,
-            };
-            return;
-          }
         }
       }
     }
@@ -155,15 +218,24 @@
     if (!savedSelection) return false;
     try {
       if (savedSelection.isBlock && savedSelection.blockCM) {
-        var cm = savedSelection.blockCM;
-        if (savedSelection.fullBlock) {
-          cm.setValue(newText);
-        } else {
-          cm.setSelection(savedSelection.cmFrom, savedSelection.cmTo);
-          cm.replaceSelection(newText);
+        var cm = getBlockCM(savedSelection.blockEl);
+        if (!cm) cm = await reactivateBlockCM(savedSelection.blockEl);
+        if (!cm) cm = savedSelection.blockCM;
+        try {
+          if (savedSelection.fullBlock) {
+            cm.setValue(newText);
+          } else {
+            cm.setSelection(savedSelection.cmFrom, savedSelection.cmTo);
+            cm.replaceSelection(newText);
+          }
+          savedSelection = null;
+          return true;
+        } catch (e) {
+          console.warn("[AI Edit] CM replace failed, falling back:", e);
+          var ok = await replaceInMarkdown(savedSelection.text, newText);
+          savedSelection = null;
+          return ok;
         }
-        savedSelection = null;
-        return true;
       }
 
       if (savedSelection.isBlock && savedSelection.isRendered) {
@@ -234,12 +306,16 @@
 
   async function replaceCodeBlock(codeCtx, newText) {
     try {
-      if (codeCtx.cm) {
-        try {
-          codeCtx.cm.setValue(newText);
-          return true;
-        } catch (e) {
-          console.warn("[AI Edit] CM setValue failed:", e);
+      if (codeCtx.blockEl) {
+        var cm = getBlockCM(codeCtx.blockEl);
+        if (!cm) cm = await reactivateBlockCM(codeCtx.blockEl);
+        if (cm) {
+          try {
+            cm.setValue(newText);
+            return true;
+          } catch (e) {
+            console.warn("[AI Edit] CM setValue failed:", e);
+          }
         }
       }
       return await replaceInMarkdown(codeCtx.originalSource || codeCtx.source, newText);

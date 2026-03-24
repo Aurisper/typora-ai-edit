@@ -193,7 +193,7 @@ sudo bash bin/uninstall.sh
 | 脚本注入 | 修改 Typora `index.html`，追加 `<script>` 标签 |
 | AI 接口 | ChatGPT Codex Responses API 或 OpenAI 兼容 `/v1/chat/completions`（SSE 流式） |
 | 认证 | 读取 `oauth-cli-kit` 本地 Token 文件或 API Key |
-| 编辑器交互 | `window.getSelection()` + `document.execCommand("insertText")` |
+| 编辑器交互 | `window.getSelection()` + `document.execCommand("insertText")` + CodeMirror API（代码块） |
 | 全文获取 | `window.File.editor.getMarkdown()`（Typora 内部 API） |
 | 文件读取 | `window.bridge.callSync("path.readText")` (macOS) |
 | 配置存储 | `localStorage` |
@@ -208,9 +208,15 @@ sudo bash bin/uninstall.sh
 - **新增：模块化代码架构** — 将 2500 行单文件拆分为 13 个功能模块（`src/modules/`），每个模块 300 行以内：
   - `01-i18n` / `02-config` / `03-platform` / `04-api` / `05-model-test` / `06-editor` / `07-ui-core` / `08-ui-menu` / `09-ui-dialogs` / `10-ui-qa` / `11-ui-settings` / `12-styles` / `13-main`
 - **新增：构建脚本** — `build.sh` 按编号合并模块，包裹 IIFE，输出可部署的 `src/typora-ai-edit.js`
-- **优化：代码块 AI 编辑** — AI 问答自动检测代码块（CodeMirror 和渲染的 HTML），将源码注入提示词，并提供「替换代码块」按钮
+- **优化：代码块 AI 编辑** — AI 问答和 AI 优化现已全面支持代码块（Mermaid、HTML/SVG、所有围栏代码块）：
+  - 通过 CodeMirror API 和 Typora `.md-focus` 类自动检测活跃代码块
+  - 将代码块源码注入 AI 提示词，使用专用编程指令
+  - 提供「替换代码块」按钮，将 AI 结果写回代码块
+  - 对话框关闭后重新激活 CodeMirror 实例，确保替换可靠
 - **优化：HTML 块替换** — 使用文件级 Markdown 替换（`fs.writeFileSync` + Typora 重载）解决渲染 HTML 块修改不生效的问题
 - **优化：流式对话框** — 所有 AI 操作（优化、图片、问答）现在在对话框中流式显示输出，提供停止/确认按钮，用户确认后再插入文档
+- **修复：Q&A 插入失败** — 弹窗打开前保存光标位置，弹窗关闭后恢复焦点再插入
+- **修复：CodeMirror 选区检测** — `getSelectedText()` 和 `saveCurrentSelection()` 现在能可靠检测 CodeMirror 代码块内的选中文字
 
 ### v0.5.1 (2026-03-24)
 
