@@ -69,6 +69,18 @@
         inserted: "已插入到图片下方",
         insertFail: "插入失败，已复制到剪贴板",
         imageSize: "图片大小",
+        qaAsk: "AI 问答",
+        qaAskCtx: "AI 问答（全文上下文）",
+        qaAsking: "AI 正在回答\u2026",
+        qaDone: "AI 回答完成",
+        qaFailed: "AI 回答失败: ",
+        qaStopped: "已停止回答",
+        qaNoQuestion: "请先输入或选中问题文字",
+        feat4: "功能四：AI 问答",
+        shortcutLabel: "快捷键设置",
+        shortcutQA: "AI 问答（仅当前）",
+        shortcutQACtx: "AI 问答（全文）",
+        shortcutHint: "点击输入框后按下快捷键组合即可录入",
         stop: "停止",
         loaded: "插件已加载。右键选中文字即可使用 AI 编辑功能。",
       }
@@ -130,6 +142,18 @@
         inserted: "Inserted below image",
         insertFail: "Insert failed \u2014 text copied to clipboard",
         imageSize: "Image Size",
+        qaAsk: "AI Q&A",
+        qaAskCtx: "AI Q&A (Full Document)",
+        qaAsking: "AI answering\u2026",
+        qaDone: "AI answer complete",
+        qaFailed: "AI answer failed: ",
+        qaStopped: "Answer stopped",
+        qaNoQuestion: "Please type or select a question first",
+        feat4: "Feature 4: AI Q&A",
+        shortcutLabel: "Keyboard Shortcuts",
+        shortcutQA: "AI Q&A (Single)",
+        shortcutQACtx: "AI Q&A (Full Document)",
+        shortcutHint: "Click the input field, then press the shortcut key combination",
         stop: "Stop",
         loaded: "Plugin loaded. Right-click on selected text to use AI editing features.",
       };
@@ -162,6 +186,14 @@
             system: "你是一位专业的图像分析师，擅长详细解读和描述视觉内容。",
             user: "请详细分析和描述以下图片。提供全面的解读，包括关键元素、背景信息以及图中可见的文字。",
           },
+          qa: {
+            system: "你是一位知识渊博的 AI 助手，擅长回答各类问题。请用 Markdown 格式回答。",
+            user: "{question}",
+          },
+          qa_with_context: {
+            system: "你是一位知识渊博的 AI 助手。以下是用户正在编辑的完整文档，请结合文档上下文来回答用户的问题。请用 Markdown 格式回答。",
+            user: "完整文档：\n\n<document>\n{document}\n</document>\n\n用户问题：\n{question}",
+          },
         }
       : {
           optimize: {
@@ -176,7 +208,19 @@
             system: "You are a professional image analyst skilled at interpreting and describing visual content in detail.",
             user: "Please analyze and describe the following image in detail. Provide a comprehensive interpretation including key elements, context, and any text visible in the image.",
           },
+          qa: {
+            system: "You are a knowledgeable AI assistant skilled at answering all kinds of questions. Please respond in Markdown format.",
+            user: "{question}",
+          },
+          qa_with_context: {
+            system: "You are a knowledgeable AI assistant. Below is the full document the user is editing. Please answer the user's question with the document as context. Respond in Markdown format.",
+            user: "Full document:\n\n<document>\n{document}\n</document>\n\nUser question:\n{question}",
+          },
         },
+    shortcuts: {
+      qa: { key: "e", metaKey: true, shiftKey: false, ctrlKey: false, altKey: false },
+      qa_ctx: { key: "e", metaKey: true, shiftKey: true, ctrlKey: false, altKey: false },
+    },
   };
 
   // ===================== Config =====================
@@ -190,6 +234,7 @@
           ...DEFAULT_CONFIG,
           ...parsed,
           prompts: { ...DEFAULT_CONFIG.prompts, ...(parsed.prompts || {}) },
+          shortcuts: { ...DEFAULT_CONFIG.shortcuts, ...(parsed.shortcuts || {}) },
         };
       }
     } catch (e) {
@@ -715,6 +760,17 @@
       html += '<div class="ai-menu-sep"></div>';
     }
 
+    // AI Q&A
+    html +=
+      '<div class="ai-menu-item" data-action="qa">' +
+      '<span class="ai-menu-icon">💬</span>' + escHTML(L.qaAsk) +
+      '<span class="ai-menu-shortcut">' + shortcutDisplay(cfg.shortcuts.qa) + '</span></div>';
+    html +=
+      '<div class="ai-menu-item" data-action="qa_ctx">' +
+      '<span class="ai-menu-icon">💬</span>' + escHTML(L.qaAskCtx) +
+      '<span class="ai-menu-shortcut">' + shortcutDisplay(cfg.shortcuts.qa_ctx) + '</span></div>';
+    html += '<div class="ai-menu-sep"></div>';
+
     // Standard edit operations
     if (hasSel) {
       html +=
@@ -807,7 +863,7 @@
   async function onMenuClick(e) {
     const item = e.target.closest("[data-action]");
     if (!item) return;
-    if (item.dataset.action === "model-parent" || item.dataset.action === "size-parent") return;
+    if (item.dataset.action === "model-parent" || item.dataset.action === "size-parent" || item.dataset.action === "shortcuts-parent") return;
 
     const action = item.dataset.action;
     const cfg = loadConfig();
@@ -832,6 +888,12 @@
       return;
     } else if (action === "describe_image") {
       showImagePromptDialog(cfg);
+      return;
+    } else if (action === "qa") {
+      triggerQA(false);
+      return;
+    } else if (action === "qa_ctx") {
+      triggerQA(true);
       return;
     } else if (action === "optimize") {
       showPromptDialog(cfg, false);
@@ -1148,6 +1210,124 @@
     }
   }
 
+  // ===================== Shortcut helpers =====================
+
+  function shortcutDisplay(sc) {
+    if (!sc) return "";
+    var parts = [];
+    if (sc.metaKey) parts.push("\u2318");
+    if (sc.ctrlKey) parts.push("\u2303");
+    if (sc.altKey) parts.push("\u2325");
+    if (sc.shiftKey) parts.push("\u21E7");
+    parts.push(sc.key.toUpperCase());
+    return parts.join("");
+  }
+
+  function shortcutMatches(e, sc) {
+    if (!sc) return false;
+    return (
+      e.key.toLowerCase() === sc.key.toLowerCase() &&
+      !!e.metaKey === !!sc.metaKey &&
+      !!e.shiftKey === !!sc.shiftKey &&
+      !!e.ctrlKey === !!sc.ctrlKey &&
+      !!e.altKey === !!sc.altKey
+    );
+  }
+
+  // ===================== AI Q&A =====================
+
+  function getCurrentLineText() {
+    var sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return "";
+    var node = sel.focusNode;
+    if (!node) return "";
+    var block = node.nodeType === 1 ? node : node.parentElement;
+    if (block) {
+      var p = block.closest("[cid]") || block.closest("p") || block.closest("li") || block;
+      if (p) return (p.textContent || "").trim();
+    }
+    return "";
+  }
+
+  function triggerQA(withContext) {
+    var question = getSelectedText().trim();
+    if (!question) {
+      question = getCurrentLineText();
+    }
+    if (!question) {
+      showToast(L.qaNoQuestion, "error");
+      return;
+    }
+    var cfg = loadConfig();
+    doQA(cfg, withContext, question);
+  }
+
+  async function doQA(cfg, withContext, question) {
+    var key = withContext ? "qa_with_context" : "qa";
+    var prompts = cfg.prompts[key];
+    if (!prompts) {
+      prompts = DEFAULT_CONFIG.prompts[key];
+    }
+
+    var docText = withContext ? getDocumentText() : "";
+    var systemPrompt = prompts.system;
+    var userPrompt = prompts.user
+      .replace(/\{question\}/g, question)
+      .replace(/\{document\}/g, docText);
+
+    var toast = showProgressToast(L.qaAsking);
+
+    try {
+      var result = await callCodexAPI(systemPrompt, userPrompt, cfg);
+      toast.remove();
+      if (result && result.trim()) {
+        insertQAResponse(result.trim());
+        showToast(L.qaDone, "success");
+      } else {
+        showToast(L.emptyResult, "error");
+      }
+    } catch (e) {
+      toast.remove();
+      if (e.name === "AbortError") {
+        showToast(L.qaStopped, "info");
+      } else {
+        showToast(L.qaFailed + e.message, "error");
+        console.error("[AI Edit]", e);
+      }
+    } finally {
+      currentAbort = null;
+    }
+  }
+
+  function insertQAResponse(text) {
+    var lines = text.split("\n");
+    var quoted = lines.map(function (l) { return "> " + l; }).join("\n");
+    quoted = "\n\n" + quoted + "\n\n";
+
+    try {
+      var sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        var node = sel.focusNode;
+        var block = node && (node.nodeType === 1 ? node : node.parentElement);
+        if (block) {
+          var p = block.closest("[cid]") || block.closest("p") || block.closest("li") || block;
+          if (p) {
+            var range = document.createRange();
+            range.setStartAfter(p);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        }
+      }
+      document.execCommand("insertText", false, quoted);
+    } catch (e) {
+      console.error("[AI Edit] insertQAResponse:", e);
+      writeToClipboard(text);
+      showToast(L.insertFail, "error");
+    }
+  }
+
   // ===================== Optimize =====================
 
   async function doOptimize(cfg, withContext, extraPrompt) {
@@ -1244,6 +1424,38 @@
       '<textarea id="ai-s-img-usr" rows="3">' +
       escHTML(cfg.prompts.describe_image.user) +
       "</textarea>" +
+      "<h4>" + escHTML(L.feat4) + "</h4>" +
+      "<label>" + escHTML(L.sysPrompt) + " (" + escHTML(L.shortcutQA) + ")</label>" +
+      '<textarea id="ai-s-qa-sys" rows="3">' +
+      escHTML((cfg.prompts.qa || DEFAULT_CONFIG.prompts.qa).system) +
+      "</textarea>" +
+      "<label>" + escHTML(L.usrPrompt) + "</label>" +
+      '<textarea id="ai-s-qa-usr" rows="3">' +
+      escHTML((cfg.prompts.qa || DEFAULT_CONFIG.prompts.qa).user) +
+      "</textarea>" +
+      '<p class="ai-edit-hint">' + escHTML(isChinese ? "可用变量: {question}" : "Available variables: {question}") + '</p>' +
+      "<label>" + escHTML(L.sysPrompt) + " (" + escHTML(L.shortcutQACtx) + ")</label>" +
+      '<textarea id="ai-s-qac-sys" rows="3">' +
+      escHTML((cfg.prompts.qa_with_context || DEFAULT_CONFIG.prompts.qa_with_context).system) +
+      "</textarea>" +
+      "<label>" + escHTML(L.usrPrompt) + "</label>" +
+      '<textarea id="ai-s-qac-usr" rows="5">' +
+      escHTML((cfg.prompts.qa_with_context || DEFAULT_CONFIG.prompts.qa_with_context).user) +
+      "</textarea>" +
+      '<p class="ai-edit-hint">' + escHTML(isChinese ? "可用变量: {question}, {document}" : "Available variables: {question}, {document}") + '</p>' +
+      '<div class="ai-menu-sep" style="margin:16px 0"></div>' +
+      "<h4>" + escHTML(L.shortcutLabel) + "</h4>" +
+      '<p class="ai-edit-hint">' + escHTML(L.shortcutHint) + '</p>' +
+      '<div class="ai-shortcut-row">' +
+      "<label>" + escHTML(L.shortcutQA) + "</label>" +
+      '<input type="text" id="ai-s-sc-qa" class="ai-shortcut-input" readonly value="' +
+      shortcutDisplay(cfg.shortcuts.qa) + '" />' +
+      "</div>" +
+      '<div class="ai-shortcut-row">' +
+      "<label>" + escHTML(L.shortcutQACtx) + "</label>" +
+      '<input type="text" id="ai-s-sc-qac" class="ai-shortcut-input" readonly value="' +
+      shortcutDisplay(cfg.shortcuts.qa_ctx) + '" />' +
+      "</div>" +
       "</div>" +
       '<div class="ai-edit-panel-footer">' +
       '<button class="ai-btn secondary" data-action="reset">' + escHTML(L.resetDefaults) + '</button>' +
@@ -1277,6 +1489,16 @@
           document.getElementById("ai-s-img-sys").value;
         cfg.prompts.describe_image.user =
           document.getElementById("ai-s-img-usr").value;
+        if (!cfg.prompts.qa) cfg.prompts.qa = {};
+        cfg.prompts.qa.system = document.getElementById("ai-s-qa-sys").value;
+        cfg.prompts.qa.user = document.getElementById("ai-s-qa-usr").value;
+        if (!cfg.prompts.qa_with_context) cfg.prompts.qa_with_context = {};
+        cfg.prompts.qa_with_context.system = document.getElementById("ai-s-qac-sys").value;
+        cfg.prompts.qa_with_context.user = document.getElementById("ai-s-qac-usr").value;
+        var scQa = document.getElementById("ai-s-sc-qa")._shortcut;
+        var scQac = document.getElementById("ai-s-sc-qac")._shortcut;
+        if (scQa) cfg.shortcuts.qa = scQa;
+        if (scQac) cfg.shortcuts.qa_ctx = scQac;
         saveConfig(cfg);
         overlay.remove();
         showToast(L.saved, "success");
@@ -1293,8 +1515,45 @@
           DEFAULT_CONFIG.prompts.describe_image.system;
         document.getElementById("ai-s-img-usr").value =
           DEFAULT_CONFIG.prompts.describe_image.user;
+        document.getElementById("ai-s-qa-sys").value =
+          DEFAULT_CONFIG.prompts.qa.system;
+        document.getElementById("ai-s-qa-usr").value =
+          DEFAULT_CONFIG.prompts.qa.user;
+        document.getElementById("ai-s-qac-sys").value =
+          DEFAULT_CONFIG.prompts.qa_with_context.system;
+        document.getElementById("ai-s-qac-usr").value =
+          DEFAULT_CONFIG.prompts.qa_with_context.user;
+        var defQa = DEFAULT_CONFIG.shortcuts.qa;
+        var defQac = DEFAULT_CONFIG.shortcuts.qa_ctx;
+        document.getElementById("ai-s-sc-qa").value = shortcutDisplay(defQa);
+        document.getElementById("ai-s-sc-qa")._shortcut = defQa;
+        document.getElementById("ai-s-sc-qac").value = shortcutDisplay(defQac);
+        document.getElementById("ai-s-sc-qac")._shortcut = defQac;
         showToast(L.restored, "info");
       }
+    });
+
+    initShortcutRecorder("ai-s-sc-qa", cfg.shortcuts.qa);
+    initShortcutRecorder("ai-s-sc-qac", cfg.shortcuts.qa_ctx);
+  }
+
+  function initShortcutRecorder(inputId, currentSc) {
+    var el = document.getElementById(inputId);
+    if (!el) return;
+    el._shortcut = currentSc ? { ...currentSc } : null;
+    el.addEventListener("keydown", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (["Meta", "Control", "Alt", "Shift"].indexOf(e.key) >= 0) return;
+      var sc = {
+        key: e.key.toLowerCase(),
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+        ctrlKey: e.ctrlKey,
+        altKey: e.altKey,
+      };
+      el._shortcut = sc;
+      el.value = shortcutDisplay(sc);
     });
   }
 
@@ -1400,6 +1659,14 @@
       ".ai-result-panel{width:560px}",
       ".ai-result-panel textarea{min-height:200px}",
 
+      /* Shortcut config */
+      ".ai-shortcut-row{display:flex;align-items:center;gap:12px;margin:8px 0}",
+      ".ai-shortcut-row label{flex:0 0 160px;font-size:13px;color:#555;font-weight:500;margin:0}",
+      ".ai-shortcut-input{flex:1;padding:6px 12px;border:1px solid #ddd;border-radius:6px;",
+      "font-size:14px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;",
+      "cursor:pointer;background:#f8f8f8;transition:border-color .2s,box-shadow .2s;outline:none}",
+      ".ai-shortcut-input:focus{border-color:#1a73e8;box-shadow:0 0 0 2px rgba(26,115,232,.2);background:#fff}",
+
       /* Dark settings */
       "@media(prefers-color-scheme:dark){",
       ".ai-edit-panel{background:#2a2a2a;color:#ddd}",
@@ -1415,6 +1682,9 @@
       ".ai-prompt-body textarea{background:#333;border-color:#555;color:#ddd}",
       ".ai-prompt-body textarea:focus{border-color:#4a9eff}",
       ".ai-prompt-checkbox{color:#aaa}",
+      ".ai-shortcut-row label{color:#aaa}",
+      ".ai-shortcut-input{background:#333;border-color:#555;color:#ddd}",
+      ".ai-shortcut-input:focus{border-color:#4a9eff;box-shadow:0 0 0 2px rgba(74,158,255,.2);background:#3a3a3a}",
       "}",
     ].join("\n");
     document.head.appendChild(css);
@@ -1455,6 +1725,20 @@
       },
       true
     );
+
+    document.addEventListener("keydown", function (e) {
+      var cfg = loadConfig();
+      var sc = cfg.shortcuts || {};
+      if (shortcutMatches(e, sc.qa)) {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerQA(false);
+      } else if (shortcutMatches(e, sc.qa_ctx)) {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerQA(true);
+      }
+    }, true);
 
     console.log("[AI Edit] " + L.loaded);
   }

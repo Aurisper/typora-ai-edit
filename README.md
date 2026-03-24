@@ -10,6 +10,8 @@ A lightweight AI editing plugin for [Typora](https://typora.io/) on macOS. Lever
 - **Context-Aware Optimization** — Optimize selected text with full document context for style consistency
 - **AI Image Description** — Right-click any image to get AI-powered analysis and description
 - **Image Resize** — Right-click image to resize (100% / 75% / 50% / 33% / 25% / 10%)
+- **AI Q&A in Document** — Ask AI questions inline; answers are inserted as Markdown blockquotes. Supports "single question" and "full document context" modes
+- **Configurable Shortcuts** — Customize keyboard shortcuts for AI Q&A via the settings panel (default: `⌘E` / `⇧⌘E`)
 - **Custom Instructions** — Enter additional instructions before each AI action (e.g., "make it more formal", "focus on the chart data")
 - **Auto Language Detection** — Automatically shows Chinese or English UI based on system language
 - **Model Switching** — Switch between GPT-5.4 / GPT-5.4-mini and other models via right-click submenu
@@ -59,6 +61,14 @@ The install script will:
 
 Supports web URLs, local files, and embedded base64 images.
 
+### AI Q&A
+
+1. Place cursor on a line containing your question (or select question text)
+2. Press **`⌘E`** for single-question Q&A, or **`⇧⌘E`** for full-document-context Q&A
+3. Also available via right-click menu: **"AI Q&A"** / **"AI Q&A (Full Document)"**
+4. The AI response is inserted below the current line as a Markdown blockquote (`> ...`)
+5. Shortcuts are customizable in **AI Edit Settings**
+
 ### Context Menu
 
 ```
@@ -67,6 +77,9 @@ Supports web URLs, local files, and embedded base64 images.
 │ ──────────────────────────────────── │
 │ ✦ AI Optimize Selection              │  ← when text is selected
 │ ✦ AI Optimize (With Context)         │
+│ ──────────────────────────────────── │
+│ 💬 AI Q&A                       ⌘E  │
+│ 💬 AI Q&A (Full Document)      ⇧⌘E  │
 │ ──────────────────────────────────── │
 │ ✂ Cut                          ⌘X   │
 │ ⧉ Copy                         ⌘C   │
@@ -122,6 +135,15 @@ sudo bash bin/uninstall.sh
 | Context Menu | Intercept `contextmenu` event with custom HTML overlay |
 
 ## Changelog
+
+### v0.4.0 (2026-03-24)
+
+- **New: AI Q&A in Document** — Ask AI questions directly in Typora; answers are inserted as Markdown blockquotes below the current line
+  - **Single question mode** — AI answers based on the question only (default: `⌘E`)
+  - **Full document context mode** — AI uses the entire document as context (default: `⇧⌘E`)
+  - Also available via right-click context menu
+- **New: Configurable keyboard shortcuts** — Customize Q&A shortcuts in the AI Edit Settings panel; click input field + press key combination to record
+- **New: Q&A prompt customization** — System/user prompts for both Q&A modes are editable in settings
 
 ### v0.3.2 (2026-03-24)
 
