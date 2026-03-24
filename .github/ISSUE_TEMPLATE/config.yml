@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/Aurisper/typora-ai-edit#readme
+    about: Read the documentation before opening an issue

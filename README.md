@@ -1,18 +1,27 @@
+<div align="center">
+
 # Typora AI Edit
 
-[![Release](https://img.shields.io/github/v/release/Aurisper/typora-ai-edit?style=flat-square&color=blue)](https://github.com/Aurisper/typora-ai-edit/releases)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square&logo=apple)](https://typora.io/)
-[![Typora](https://img.shields.io/badge/Typora-plugin-8B5CF6?style=flat-square)](https://typora.io/)
+**Turn Typora into an AI-powered writing & productivity studio.**
+
+[![Release](https://img.shields.io/github/v/release/Aurisper/typora-ai-edit?style=for-the-badge&color=blue)](https://github.com/Aurisper/typora-ai-edit/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS-lightgrey?style=for-the-badge&logo=apple)](https://typora.io/)
+[![Typora](https://img.shields.io/badge/Typora-plugin-8B5CF6?style=for-the-badge)](https://typora.io/)
+
 [![OpenAI Compatible](https://img.shields.io/badge/API-OpenAI%20Compatible-412991?style=flat-square&logo=openai)](https://platform.openai.com/)
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=flat-square&logo=javascript&logoColor=black)](src/modules/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/Aurisper/typora-ai-edit/pulls)
+[![GitHub stars](https://img.shields.io/github/stars/Aurisper/typora-ai-edit?style=flat-square&color=yellow)](https://github.com/Aurisper/typora-ai-edit/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/Aurisper/typora-ai-edit?style=flat-square)](https://github.com/Aurisper/typora-ai-edit/issues)
 
-[中文文档](README.zh-CN.md)
+[中文文档](README.zh-CN.md) · [Report Bug](https://github.com/Aurisper/typora-ai-edit/issues/new?template=bug_report.md) · [Request Feature](https://github.com/Aurisper/typora-ai-edit/issues/new?template=feature_request.md)
 
-A powerful AI editing plugin for [Typora](https://typora.io/) on macOS — turn Typora into an AI-powered writing & productivity studio.
+</div>
 
-Supports ChatGPT Plus OAuth and any OpenAI-compatible API. Everything happens inline — AI responses are native Markdown, instantly rendered by Typora, ready to export as PDF and share.
+---
+
+A powerful AI editing plugin for [Typora](https://typora.io/) on macOS. Supports ChatGPT Plus OAuth and any OpenAI-compatible API. Everything happens inline — AI responses are native Markdown, instantly rendered by Typora, ready to export as PDF and share.
 
 ## Why Typora AI Edit?
 
@@ -20,7 +29,7 @@ Supports ChatGPT Plus OAuth and any OpenAI-compatible API. Everything happens in
 - **Flowcharts & diagrams via AI** — Ask AI to generate flowcharts as HTML/CSS/SVG or Mermaid code — Typora renders them instantly as live visuals. Edit and refine through follow-up Q&A
 - **Cumulative Q&A** — Ask follow-up questions in the same document; the full conversation context is preserved as Markdown, naturally forming a knowledge base
 - **Web search built in** — Let AI search the web for up-to-date information, then write the results directly into your document
-- **Everything is Markdown** — All AI output is native Markdown (text, code blocks, tables, HTML/SVG diagrams, Mermaid, math). Export to PDF, HTML, or share the `.md` file directly
+- **Everything is Markdown** — All AI output is native Markdown (text, code, tables, HTML/SVG diagrams, Mermaid, math). Export to PDF, HTML, or share the `.md` file directly
 - **Multi-model freedom** — Switch between GPT, Claude, DeepSeek, Qwen, Kimi, or any OpenAI-compatible model with one click
 
 ## Example: AI-Generated Flowchart
@@ -34,33 +43,53 @@ Ask AI to generate a flowchart — it outputs HTML/CSS/SVG code that Typora rend
 
 ## Features
 
+<table>
+<tr>
+<td width="50%">
+
 ### AI Writing & Editing
-- **AI Text Optimization** — Select text, right-click, optimize with one click
-- **Context-Aware Optimization** — Optimize selected text with full document context for style consistency
-- **Custom Instructions** — Enter additional instructions before each action (e.g., "make it more formal", "translate to English")
-- **Stop Generation** — Cancel ongoing AI processing at any time
+- **AI Text Optimization** — Select text, right-click, optimize
+- **Context-Aware Optimization** — Optimize with full document context
+- **Custom Instructions** — Enter instructions before each action
+- **Stop Generation** — Cancel ongoing AI processing
+
+</td>
+<td width="50%">
 
 ### AI Q&A & Knowledge Building
-- **Inline AI Q&A** — Press `⌘E` to ask AI questions; answers are inserted as Markdown blockquotes
-- **Cumulative Follow-up** — Keep asking in the same document; enable "Include full document context" so AI remembers everything above
-- **Flowcharts & Diagrams** — Ask AI to draw flowcharts (HTML/CSS/SVG or Mermaid), sequence diagrams, class diagrams — rendered live by Typora
-- **Web Search** — Toggle web search for real-time information; AI cites sources inline
+- **Inline AI Q&A** — Press `⌘E` to ask questions inline
+- **Cumulative Follow-up** — Full document context preserved
+- **Flowcharts & Diagrams** — HTML/SVG/Mermaid, rendered live
+- **Web Search** — Real-time information with source citations
+
+</td>
+</tr>
+<tr>
+<td width="50%">
 
 ### AI Image Analysis
-- **AI Image Description** — Right-click any image for AI-powered analysis (auto-hidden when model lacks vision)
-- **Smart Compression** — Images auto-resized (max 2048px) and converted to JPEG (80% quality) before sending
-- **Image Resize** — Right-click image to resize (100% / 75% / 50% / 33% / 25% / 10%)
+- **AI Image Description** — Right-click any image for AI analysis
+- **Smart Compression** — Auto-resize (max 2048px) + JPEG 80%
+- **Image Resize** — 100% / 75% / 50% / 33% / 25% / 10%
+
+</td>
+<td width="50%">
 
 ### Multi-Provider & Model Management
-- **Multi-Provider Support** — ChatGPT OAuth login or any OpenAI-compatible API (custom URL, key, models)
-- **Auto Model Testing** — Tests each model for availability, web search, and vision capability with real-time progress log
-- **Capability-Aware UI** — Menus and dialogs auto-adapt based on model capabilities (vision, web search)
-- **Model Switching** — Switch models via right-click submenu; unavailable models shown with ✗
+- **Multi-Provider** — ChatGPT OAuth or any OpenAI-compatible API
+- **Auto Model Testing** — Validates availability, search, vision
+- **Capability-Aware UI** — Menus auto-adapt to model features
+- **One-Click Switching** — Switch models via right-click submenu
+
+</td>
+</tr>
+</table>
 
 ### Productivity
-- **Native Markdown Output** — All AI content is Markdown — rendered by Typora, exportable to PDF / HTML / Word
-- **Configurable Shortcuts** — Customize keyboard shortcuts in the settings panel (default: `⌘E` for Q&A)
-- **Prompt Customization** — Visually edit system/user prompts through the settings panel
+
+- **Native Markdown Output** — Exportable to PDF / HTML / Word
+- **Configurable Shortcuts** — Customize keyboard shortcuts (default: `⌘E`)
+- **Prompt Customization** — Visually edit system/user prompts
 - **Auto Language Detection** — Chinese or English UI based on system language
 - **Dark Mode** — All UI components adapt to system dark mode
 
@@ -71,25 +100,25 @@ Ask AI to generate a flowchart — it outputs HTML/CSS/SVG code that Typora rend
 | Polish a paragraph | Select text → right-click → AI Optimize |
 | Generate a flowchart | `⌘E` → "Draw a flowchart for user registration process" |
 | Edit an existing diagram | `⌘E` → "Add an error handling branch to the flowchart above" |
-| Research a topic | `⌘E` + enable Web Search → "What are the latest trends in AI agents?" |
+| Research a topic | `⌘E` + Web Search → "What are the latest trends in AI agents?" |
 | Analyze an image | Right-click image → AI Describe Image → "Extract all visible data" |
-| Build a Q&A knowledge base | Keep asking follow-up questions in one document with full context enabled |
-| Create a presentation outline | `⌘E` → "Create a 10-slide outline for a product launch presentation" |
+| Build a Q&A knowledge base | Keep asking follow-up questions with full context enabled |
 | Translate content | Select text → right-click → AI Optimize → "Translate to Japanese" |
 
-## Prerequisites
+## Getting Started
+
+### Prerequisites
 
 - macOS + [Typora](https://typora.io/) (Electron-based)
-- **Option A: ChatGPT Plus** — OAuth login via [oauth-cli-kit](https://pypi.org/project/oauth-cli-kit/) (token persisted locally)
-- **Option B: OpenAI-compatible API** — Any API endpoint with an API key (e.g., OpenAI, Azure, local LLM, third-party providers)
+- **Option A: ChatGPT Plus** — OAuth login via [oauth-cli-kit](https://pypi.org/project/oauth-cli-kit/)
+- **Option B: OpenAI-compatible API** — Any API endpoint with an API key
 
 ```bash
 # For ChatGPT Plus users:
 pip install oauth-cli-kit
-# Follow oauth-cli-kit documentation to complete ChatGPT OAuth login
 ```
 
-## Installation
+### Installation
 
 ```bash
 # Close Typora first
@@ -101,12 +130,18 @@ The install script will:
 1. Copy the plugin file to Typora's resource directory
 2. Inject a `<script>` tag into Typora's `index.html`
 
+### Uninstall
+
+```bash
+sudo bash bin/uninstall.sh
+```
+
 ## Quick Start
 
 ### Text Optimization
 
 1. **Select text** in Typora
-2. **Right-click** → **"AI Optimize Selection"** (or "With Context" for full-document awareness)
+2. **Right-click** → **"AI Optimize Selection"** (or "With Context")
 3. Enter optional instructions, click **"Start"**
 4. The optimized result replaces the selected text
 
@@ -148,27 +183,20 @@ The install script will:
 └──────────────────────────────────────┘
 ```
 
-## Updating the Plugin
+## Development
+
+### Updating the Plugin
 
 After modifying module files in `src/modules/`:
 
 ```bash
-# Rebuild from modules
 bash build.sh
-
-# Deploy to Typora
-sudo cp src/typora-ai-edit.js /Applications/Typora.app/Contents/Resources/TypeMark/ai-edit/typora-ai-edit.js
-
+sudo cp src/typora-ai-edit.js \
+  /Applications/Typora.app/Contents/Resources/TypeMark/ai-edit/typora-ai-edit.js
 # Restart Typora
 ```
 
-## Uninstall
-
-```bash
-sudo bash bin/uninstall.sh
-```
-
-## Project Structure
+### Project Structure
 
 ```
 ├── src/
@@ -186,96 +214,91 @@ sudo bash bin/uninstall.sh
 │   │   ├── 11-ui-settings.js   # Settings panel
 │   │   ├── 12-styles.js        # CSS injection
 │   │   └── 13-main.js          # Initialization & event binding
-│   └── typora-ai-edit.js       # Built output (auto-generated, do not edit)
-├── build.sh                    # Build script: modules → single IIFE
+│   └── typora-ai-edit.js       # Built output (auto-generated)
+├── build.sh                    # Build: modules → single IIFE
 ├── bin/
 │   ├── install.sh              # Install script
 │   └── uninstall.sh            # Uninstall script
 └── doc/
     ├── requirements.md         # Requirements document
-    └── development.md          # Development progress & technical details
+    └── development.md          # Technical details
 ```
 
-## Technical Overview
+### Technical Overview
 
 | Module | Implementation |
 |--------|---------------|
-| Script Injection | Modify Typora's `index.html` with an additional `<script>` tag |
-| AI API | ChatGPT Codex Responses API or OpenAI-compatible `/v1/chat/completions` (SSE streaming) |
-| Authentication | Reads local `oauth-cli-kit` token file or API Key |
-| Editor Interaction | `window.getSelection()` + `document.execCommand("insertText")` + CodeMirror API for code blocks |
-| Document Content | `window.File.editor.getMarkdown()` (Typora internal API) |
-| File Reading | `window.bridge.callSync("path.readText")` (macOS) |
+| Script Injection | Modify Typora's `index.html` with `<script>` tag |
+| AI API | ChatGPT Codex Responses API or OpenAI `/v1/chat/completions` (SSE) |
+| Authentication | Local `oauth-cli-kit` token or API Key |
+| Editor Interaction | `window.getSelection()` + `execCommand` + CodeMirror API |
+| Document Content | `window.File.editor.getMarkdown()` (Typora internal) |
 | Config Storage | `localStorage` |
-| Image Handling | Local files → base64, web URLs → download & convert, canvas fallback, auto-compress |
-| Context Menu | Intercept `contextmenu` event with custom HTML overlay |
+| Image Handling | Local → base64, web → download, canvas fallback, auto-compress |
+| Context Menu | Custom HTML overlay on `contextmenu` event |
 | Diagram Rendering | AI generates HTML/CSS/SVG or Mermaid → Typora renders inline |
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request.
+
+- [Bug Report](https://github.com/Aurisper/typora-ai-edit/issues/new?template=bug_report.md) — Found a bug? Let us know
+- [Feature Request](https://github.com/Aurisper/typora-ai-edit/issues/new?template=feature_request.md) — Have an idea? Share it
+- [Pull Requests](https://github.com/Aurisper/typora-ai-edit/pulls) — PRs are always welcome
+
+Please also review our [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Policy](SECURITY.md).
 
 ## Changelog
 
-### v0.6.0 (2026-03-24)
+<details>
+<summary><strong>v0.6.0</strong> — Modular Architecture & Code Block Editing (2026-03-24)</summary>
 
-- **New: Modular codebase** — Split the monolithic 2500-line plugin into 13 focused modules under `src/modules/`, each under 300 lines:
-  - `01-i18n` / `02-config` / `03-platform` / `04-api` / `05-model-test` / `06-editor` / `07-ui-core` / `08-ui-menu` / `09-ui-dialogs` / `10-ui-qa` / `11-ui-settings` / `12-styles` / `13-main`
-- **New: Build script** — `build.sh` concatenates modules in order, wraps in IIFE, outputs deployable `src/typora-ai-edit.js`
-- **Improved: Code block AI editing** — AI Q&A and AI Optimize now fully support code blocks (Mermaid, HTML/SVG, all fenced code):
-  - Auto-detects active code block via CodeMirror API & Typora `.md-focus` class
-  - Injects code block source into AI prompts with specialized coding instructions
-  - Offers "Replace Code Block" button to write AI result back into the block
-  - Re-activates CodeMirror instances after dialog closes for reliable replacement
-- **Improved: HTML block replacement** — File-level Markdown replacement (`fs.writeFileSync` + Typora reload) for reliable rendered HTML block editing
-- **Improved: Streaming dialogs** — All AI operations (Optimize, Image, Q&A) now stream output in the dialog with Stop/Confirm buttons before inserting into the document
-- **Fix: Q&A insert failure** — Saves cursor position before dialog opens; restores focus after overlay removal
-- **Fix: CodeMirror selection detection** — `getSelectedText()` and `saveCurrentSelection()` now reliably detect text selected inside CodeMirror code blocks
+- **New: Modular codebase** — Split 2500-line plugin into 13 focused modules under `src/modules/`
+- **New: Build script** — `build.sh` concatenates modules, wraps in IIFE
+- **Improved: Code block AI editing** — Full support for Mermaid, HTML/SVG, and fenced code blocks
+- **Improved: HTML block replacement** — File-level Markdown replacement for rendered HTML blocks
+- **Improved: Streaming dialogs** — All AI operations stream output with Stop/Confirm buttons
+- **Fix: Q&A insert failure** — Saves cursor position before dialog opens
+- **Fix: CodeMirror selection** — Reliable text detection inside code blocks
 
-### v0.5.1 (2026-03-24)
+</details>
 
-- **Improved: Real-time test log** — Model testing now shows a live progress log in the settings panel (fetching models, testing availability, web search, vision for each model)
-- **Improved: Auto-fetch models** — When model list is left empty, automatically fetches all available models from the API endpoint
-- **Improved: Test feedback** — "Save & Test" button shows disabled state during testing; clear error messages when URL or Key is missing
+<details>
+<summary><strong>v0.5.x</strong> — Multi-Provider Support (2026-03-24)</summary>
 
-### v0.5.0 (2026-03-24)
+- **New: Multi-Provider** — ChatGPT OAuth or any OpenAI-compatible API
+- **New: Auto Model Testing** — Validates availability, web search, and vision
+- **New: Capability-aware UI** — Menus auto-adapt based on model capabilities
+- **Improved: Real-time test log** — Live progress in settings panel
+- **Improved: Auto-fetch models** — Automatically fetches from API endpoint
 
-- **New: Multi-Provider Support** — Choose between ChatGPT OAuth or any OpenAI-compatible API in the settings panel
-  - OpenAI-compatible: enter API URL, API Key, and model names (comma-separated)
-  - "Save & Test" button automatically validates each model for availability, web search (tools), and vision (image) support
-  - Connection status shown for ChatGPT OAuth; test results shown for OpenAI-compatible models
-- **New: Capability-aware UI** — Features auto-adapt based on model capabilities
-  - Image description menu hidden when model lacks vision support
-  - Web search toggle/checkbox grayed out when model doesn't support tools
-  - Unavailable models shown with cross mark in the model submenu
+</details>
 
-### v0.4.0 (2026-03-24)
+<details>
+<summary><strong>v0.4.0</strong> — AI Q&A (2026-03-24)</summary>
 
-- **New: AI Q&A in Document** — Press `⌘E` (or right-click → AI Q&A) to open a question dialog; AI answers are inserted as Markdown blockquotes
-  - Prompt dialog with optional **Web Search** and **Include full document context** checkboxes
-  - Only available when no text is selected (selected text uses the existing AI Optimize flow)
-- **New: Configurable keyboard shortcut** — Customize the Q&A shortcut in the AI Edit Settings panel; click input field + press key combination to record
-- **New: Q&A prompt customization** — System/user prompts for Q&A (with and without document context) are editable in settings
+- **New: Inline AI Q&A** — `⌘E` to ask questions, answers inserted as blockquotes
+- **New: Configurable shortcut** — Customize Q&A shortcut in settings
+- **New: Q&A prompt customization** — Editable system/user prompts
 
-### v0.3.2 (2026-03-24)
+</details>
 
-- **New: Image compression** — Images are automatically resized (max 2048px) and converted to JPEG (quality 80%) before sending to AI, significantly reducing upload size
-- **Improved: Smart prompt logic for images** — When custom instructions are provided, uses only your instructions as the prompt (no interference from default "describe image" prompts); when left empty, uses the default prompts as before
+<details>
+<summary><strong>v0.3.x</strong> — Image Analysis & i18n (2026-03-24)</summary>
 
-### v0.3.1 (2026-03-24)
+- **New: AI Image Description** — Right-click image for AI analysis
+- **New: Image compression** — Auto-resize + JPEG conversion
+- **New: Image resize submenu** — 100% / 75% / 50% / 33% / 25% / 10%
+- **New: Auto language detection** — Chinese/English UI auto-switch
 
-- **New: Image resize submenu** — Right-click image to resize with 100% / 75% / 50% / 33% / 25% / 10% options; checkmark shows current size
-- **Fix: Web image download** — Web images are now downloaded locally (canvas or Node.js https) and converted to base64 before sending to API, fixing errors with signed/protected URLs
+</details>
 
-### v0.3.0 (2026-03-24)
+<details>
+<summary><strong>v0.1.0</strong> — Initial Release (2026-03-24)</summary>
 
-- **New: Auto language detection** — Automatically detects system language via `navigator.language`; shows Chinese UI on Chinese systems, English on all others
-- Default prompts are also language-aware
+- AI text optimization, instruction dialog, model switching, web search, stop generation, prompt customization, clipboard operations, dark mode, macOS install/uninstall scripts
 
-### v0.2.0 (2026-03-24)
-
-- **New: AI Image Description** — Right-click any image for AI-powered analysis with prompt dialog and result dialog
-- **New: Image prompt settings** — Customizable system/user prompts for image description
-
-### v0.1.0 (2026-03-24)
-
-- Initial release — AI text optimization, instruction dialog, model switching, web search, stop generation, prompt customization, clipboard operations, dark mode, macOS install/uninstall scripts
+</details>
 
 ## Notes
 
@@ -286,4 +309,14 @@ sudo bash bin/uninstall.sh
 
 ## License
 
-MIT
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+---
+
+<div align="center">
+
+**If you find this project useful, please consider giving it a ⭐**
+
+[Report Bug](https://github.com/Aurisper/typora-ai-edit/issues/new?template=bug_report.md) · [Request Feature](https://github.com/Aurisper/typora-ai-edit/issues/new?template=feature_request.md) · [Contributing](CONTRIBUTING.md)
+
+</div>
