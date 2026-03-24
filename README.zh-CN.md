@@ -13,6 +13,15 @@
 - **一切皆 Markdown** — AI 输出的所有内容都是原生 Markdown（文字、代码块、表格、Mermaid 图表、数学公式）。可导出 PDF、HTML，或直接分享 `.md` 文件
 - **多模型自由切换** — GPT、Claude、DeepSeek、Qwen、Kimi 等任意 OpenAI 兼容模型，一键切换
 
+## 示例：AI 生成流程图
+
+让 AI 生成 Mermaid 流程图 —— Typora 即时渲染为可视化图表。通过追问持续编辑和优化。
+
+![AI 在 Typora 中生成的流程图](assets/flowchart-example.png)
+
+> **提示词：** *"画一个内容发布流程的流程图"*
+> AI 输出 Mermaid 代码，Typora 自动渲染为可视化图表 —— 无需额外工具。你可以继续追问，如 *"在发布前增加一个审核步骤"*，迭代优化图表。
+
 ## 功能
 
 ### AI 写作与编辑

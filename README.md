@@ -15,6 +15,15 @@ Supports ChatGPT Plus OAuth and any OpenAI-compatible API. Everything happens in
 - **Everything is Markdown** — All AI output is native Markdown (text, code blocks, tables, Mermaid diagrams, math). Export to PDF, HTML, or share the `.md` file directly
 - **Multi-model freedom** — Switch between GPT, Claude, DeepSeek, Qwen, Kimi, or any OpenAI-compatible model with one click
 
+## Example: AI-Generated Flowchart
+
+Ask AI to generate a Mermaid flowchart — Typora renders it instantly as a live diagram. Edit and refine through follow-up Q&A.
+
+![AI-generated flowchart in Typora](assets/flowchart-example.png)
+
+> **Prompt:** *"Draw a flowchart for a content publishing workflow"*
+> The AI outputs Mermaid code, and Typora renders it as a visual diagram — no extra tools needed. You can ask follow-up questions like *"Add a review step before publishing"* to iteratively refine the diagram.
+
 ## Features
 
 ### AI Writing & Editing
