@@ -169,12 +169,33 @@
     return map[ext] || "image/png";
   }
 
-  function getImageDataUrl(imgEl) {
+  async function getImageDataUrl(imgEl) {
     var src = imgEl.getAttribute("src") || imgEl.src || "";
 
     if (src.startsWith("data:image/")) return src;
 
-    if (src.startsWith("http://") || src.startsWith("https://")) return src;
+    if (src.startsWith("http://") || src.startsWith("https://")) {
+      try {
+        var canvas = document.createElement("canvas");
+        var w = imgEl.naturalWidth || imgEl.width;
+        var h = imgEl.naturalHeight || imgEl.height;
+        if (w > 0 && h > 0) {
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext("2d").drawImage(imgEl, 0, 0);
+          var dataUrl = canvas.toDataURL("image/png");
+          if (dataUrl && dataUrl.length > 100) return dataUrl;
+        }
+      } catch (e) {
+        console.warn("[AI Edit] Canvas export failed, trying Node.js download:", e);
+      }
+      try {
+        return await fetchImageAsDataUrl(src);
+      } catch (e) {
+        console.warn("[AI Edit] Node.js download failed:", e);
+      }
+      return null;
+    }
 
     var filePath = src;
     if (src.startsWith("file://")) {
@@ -193,6 +214,44 @@
     } catch (_) {}
 
     return null;
+  }
+
+  function fetchImageAsDataUrl(url) {
+    return new Promise(function (resolve, reject) {
+      var mod = url.startsWith("https") ? "https" : "http";
+      var httpMod;
+      try {
+        httpMod = window.reqnode ? window.reqnode(mod) : require(mod);
+      } catch (e) {
+        reject(e);
+        return;
+      }
+
+      var opts = {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        },
+      };
+
+      httpMod.get(url, opts, function (res) {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          fetchImageAsDataUrl(res.headers.location).then(resolve).catch(reject);
+          return;
+        }
+        if (res.statusCode !== 200) {
+          reject(new Error("HTTP " + res.statusCode));
+          return;
+        }
+        var chunks = [];
+        res.on("data", function (chunk) { chunks.push(chunk); });
+        res.on("end", function () {
+          var buffer = Buffer.concat(chunks);
+          var mime = res.headers["content-type"] || getMimeFromPath(url);
+          resolve("data:" + mime + ";base64," + buffer.toString("base64"));
+        });
+        res.on("error", reject);
+      }).on("error", reject);
+    });
   }
 
   function readToken() {
@@ -771,7 +830,7 @@
       return;
     }
 
-    var imageUrl = getImageDataUrl(savedImage);
+    var imageUrl = await getImageDataUrl(savedImage);
     if (!imageUrl) {
       showToast("Failed to read image data", "error");
       return;
