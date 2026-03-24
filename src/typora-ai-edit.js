@@ -70,16 +70,17 @@
         insertFail: "插入失败，已复制到剪贴板",
         imageSize: "图片大小",
         qaAsk: "AI 问答",
-        qaAskCtx: "AI 问答（全文上下文）",
         qaAsking: "AI 正在回答\u2026",
         qaDone: "AI 回答完成",
         qaFailed: "AI 回答失败: ",
         qaStopped: "已停止回答",
-        qaNoQuestion: "请先输入或选中问题文字",
+        qaTitle: "AI 问答",
+        qaLabel: "输入你的问题",
+        qaPlaceholder: "例如：请解释量子计算的基本原理 / 帮我写一段自我介绍\u2026",
+        qaIncludeDoc: "包含全文上下文",
         feat4: "功能四：AI 问答",
         shortcutLabel: "快捷键设置",
-        shortcutQA: "AI 问答（仅当前）",
-        shortcutQACtx: "AI 问答（全文）",
+        shortcutQA: "AI 问答",
         shortcutHint: "点击输入框后按下快捷键组合即可录入",
         stop: "停止",
         loaded: "插件已加载。右键选中文字即可使用 AI 编辑功能。",
@@ -143,16 +144,17 @@
         insertFail: "Insert failed \u2014 text copied to clipboard",
         imageSize: "Image Size",
         qaAsk: "AI Q&A",
-        qaAskCtx: "AI Q&A (Full Document)",
         qaAsking: "AI answering\u2026",
         qaDone: "AI answer complete",
         qaFailed: "AI answer failed: ",
         qaStopped: "Answer stopped",
-        qaNoQuestion: "Please type or select a question first",
+        qaTitle: "AI Q&A",
+        qaLabel: "Enter your question",
+        qaPlaceholder: "e.g. Explain the basics of quantum computing / Write a self-introduction for me\u2026",
+        qaIncludeDoc: "Include full document context",
         feat4: "Feature 4: AI Q&A",
         shortcutLabel: "Keyboard Shortcuts",
-        shortcutQA: "AI Q&A (Single)",
-        shortcutQACtx: "AI Q&A (Full Document)",
+        shortcutQA: "AI Q&A",
         shortcutHint: "Click the input field, then press the shortcut key combination",
         stop: "Stop",
         loaded: "Plugin loaded. Right-click on selected text to use AI editing features.",
@@ -219,7 +221,6 @@
         },
     shortcuts: {
       qa: { key: "e", metaKey: true, shiftKey: false, ctrlKey: false, altKey: false },
-      qa_ctx: { key: "e", metaKey: true, shiftKey: true, ctrlKey: false, altKey: false },
     },
   };
 
@@ -760,16 +761,14 @@
       html += '<div class="ai-menu-sep"></div>';
     }
 
-    // AI Q&A
-    html +=
-      '<div class="ai-menu-item" data-action="qa">' +
-      '<span class="ai-menu-icon">💬</span>' + escHTML(L.qaAsk) +
-      '<span class="ai-menu-shortcut">' + shortcutDisplay(cfg.shortcuts.qa) + '</span></div>';
-    html +=
-      '<div class="ai-menu-item" data-action="qa_ctx">' +
-      '<span class="ai-menu-icon">💬</span>' + escHTML(L.qaAskCtx) +
-      '<span class="ai-menu-shortcut">' + shortcutDisplay(cfg.shortcuts.qa_ctx) + '</span></div>';
-    html += '<div class="ai-menu-sep"></div>';
+    // AI Q&A (only when no text selected)
+    if (!hasSel) {
+      html +=
+        '<div class="ai-menu-item" data-action="qa">' +
+        '<span class="ai-menu-icon">💬</span>' + escHTML(L.qaAsk) +
+        '<span class="ai-menu-shortcut">' + shortcutDisplay(cfg.shortcuts.qa) + '</span></div>';
+      html += '<div class="ai-menu-sep"></div>';
+    }
 
     // Standard edit operations
     if (hasSel) {
@@ -890,10 +889,7 @@
       showImagePromptDialog(cfg);
       return;
     } else if (action === "qa") {
-      triggerQA(false);
-      return;
-    } else if (action === "qa_ctx") {
-      triggerQA(true);
+      showQAPromptDialog();
       return;
     } else if (action === "optimize") {
       showPromptDialog(cfg, false);
@@ -1236,30 +1232,75 @@
 
   // ===================== AI Q&A =====================
 
-  function getCurrentLineText() {
-    var sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return "";
-    var node = sel.focusNode;
-    if (!node) return "";
-    var block = node.nodeType === 1 ? node : node.parentElement;
-    if (block) {
-      var p = block.closest("[cid]") || block.closest("p") || block.closest("li") || block;
-      if (p) return (p.textContent || "").trim();
-    }
-    return "";
-  }
+  function showQAPromptDialog() {
+    var existing = document.getElementById("ai-edit-prompt-dialog");
+    if (existing) existing.remove();
 
-  function triggerQA(withContext) {
-    var question = getSelectedText().trim();
-    if (!question) {
-      question = getCurrentLineText();
-    }
-    if (!question) {
-      showToast(L.qaNoQuestion, "error");
-      return;
-    }
     var cfg = loadConfig();
-    doQA(cfg, withContext, question);
+    var overlay = document.createElement("div");
+    overlay.id = "ai-edit-prompt-dialog";
+    overlay.className = "ai-edit-overlay";
+
+    overlay.innerHTML =
+      '<div class="ai-prompt-panel">' +
+      '<div class="ai-edit-panel-header">' +
+      "<h3>" + escHTML(L.qaTitle) + "</h3>" +
+      '<button class="ai-edit-close" data-action="close">&times;</button>' +
+      "</div>" +
+      '<div class="ai-prompt-body">' +
+      "<label>" + escHTML(L.qaLabel) + "</label>" +
+      '<textarea id="ai-qa-input" rows="5" placeholder="' + escHTML(L.qaPlaceholder) + '"></textarea>' +
+      '<div class="ai-prompt-options">' +
+      '<label class="ai-prompt-checkbox"><input type="checkbox" id="ai-qa-web" ' +
+      (cfg.web_search ? "checked" : "") +
+      "> " + escHTML(L.webSearch) + "</label>" +
+      '<label class="ai-prompt-checkbox" style="margin-left:16px"><input type="checkbox" id="ai-qa-ctx"> ' +
+      escHTML(L.qaIncludeDoc) + "</label>" +
+      "</div>" +
+      "</div>" +
+      '<div class="ai-edit-panel-footer">' +
+      '<button class="ai-btn secondary" data-action="close">' + escHTML(L.cancel) + '</button>' +
+      '<div class="ai-edit-spacer"></div>' +
+      '<button class="ai-btn primary" data-action="go">' + escHTML(L.start) + '</button>' +
+      "</div>" +
+      "</div>";
+
+    document.body.appendChild(overlay);
+
+    var inputEl = document.getElementById("ai-qa-input");
+    setTimeout(function () { inputEl.focus(); }, 50);
+
+    inputEl.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        doGo();
+      }
+    });
+
+    overlay.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-action]");
+      if (!btn) {
+        if (e.target === overlay) overlay.remove();
+        return;
+      }
+      if (btn.dataset.action === "close") {
+        overlay.remove();
+      } else if (btn.dataset.action === "go") {
+        doGo();
+      }
+    });
+
+    function doGo() {
+      var question = document.getElementById("ai-qa-input").value.trim();
+      if (!question) return;
+      var useWeb = document.getElementById("ai-qa-web").checked;
+      var withContext = document.getElementById("ai-qa-ctx").checked;
+      overlay.remove();
+
+      var runCfg = JSON.parse(JSON.stringify(cfg));
+      runCfg.web_search = useWeb;
+      doQA(runCfg, withContext, question);
+    }
   }
 
   async function doQA(cfg, withContext, question) {
@@ -1425,7 +1466,7 @@
       escHTML(cfg.prompts.describe_image.user) +
       "</textarea>" +
       "<h4>" + escHTML(L.feat4) + "</h4>" +
-      "<label>" + escHTML(L.sysPrompt) + " (" + escHTML(L.shortcutQA) + ")</label>" +
+      "<label>" + escHTML(L.sysPrompt) + "</label>" +
       '<textarea id="ai-s-qa-sys" rows="3">' +
       escHTML((cfg.prompts.qa || DEFAULT_CONFIG.prompts.qa).system) +
       "</textarea>" +
@@ -1434,7 +1475,7 @@
       escHTML((cfg.prompts.qa || DEFAULT_CONFIG.prompts.qa).user) +
       "</textarea>" +
       '<p class="ai-edit-hint">' + escHTML(isChinese ? "可用变量: {question}" : "Available variables: {question}") + '</p>' +
-      "<label>" + escHTML(L.sysPrompt) + " (" + escHTML(L.shortcutQACtx) + ")</label>" +
+      "<label>" + escHTML(L.sysPrompt) + " (" + escHTML(L.qaIncludeDoc) + ")</label>" +
       '<textarea id="ai-s-qac-sys" rows="3">' +
       escHTML((cfg.prompts.qa_with_context || DEFAULT_CONFIG.prompts.qa_with_context).system) +
       "</textarea>" +
@@ -1450,11 +1491,6 @@
       "<label>" + escHTML(L.shortcutQA) + "</label>" +
       '<input type="text" id="ai-s-sc-qa" class="ai-shortcut-input" readonly value="' +
       shortcutDisplay(cfg.shortcuts.qa) + '" />' +
-      "</div>" +
-      '<div class="ai-shortcut-row">' +
-      "<label>" + escHTML(L.shortcutQACtx) + "</label>" +
-      '<input type="text" id="ai-s-sc-qac" class="ai-shortcut-input" readonly value="' +
-      shortcutDisplay(cfg.shortcuts.qa_ctx) + '" />' +
       "</div>" +
       "</div>" +
       '<div class="ai-edit-panel-footer">' +
@@ -1496,9 +1532,7 @@
         cfg.prompts.qa_with_context.system = document.getElementById("ai-s-qac-sys").value;
         cfg.prompts.qa_with_context.user = document.getElementById("ai-s-qac-usr").value;
         var scQa = document.getElementById("ai-s-sc-qa")._shortcut;
-        var scQac = document.getElementById("ai-s-sc-qac")._shortcut;
         if (scQa) cfg.shortcuts.qa = scQa;
-        if (scQac) cfg.shortcuts.qa_ctx = scQac;
         saveConfig(cfg);
         overlay.remove();
         showToast(L.saved, "success");
@@ -1524,17 +1558,13 @@
         document.getElementById("ai-s-qac-usr").value =
           DEFAULT_CONFIG.prompts.qa_with_context.user;
         var defQa = DEFAULT_CONFIG.shortcuts.qa;
-        var defQac = DEFAULT_CONFIG.shortcuts.qa_ctx;
         document.getElementById("ai-s-sc-qa").value = shortcutDisplay(defQa);
         document.getElementById("ai-s-sc-qa")._shortcut = defQa;
-        document.getElementById("ai-s-sc-qac").value = shortcutDisplay(defQac);
-        document.getElementById("ai-s-sc-qac")._shortcut = defQac;
         showToast(L.restored, "info");
       }
     });
 
     initShortcutRecorder("ai-s-sc-qa", cfg.shortcuts.qa);
-    initShortcutRecorder("ai-s-sc-qac", cfg.shortcuts.qa_ctx);
   }
 
   function initShortcutRecorder(inputId, currentSc) {
@@ -1727,16 +1757,14 @@
     );
 
     document.addEventListener("keydown", function (e) {
+      var sel = getSelectedText();
+      if (sel.length > 0) return;
       var cfg = loadConfig();
       var sc = cfg.shortcuts || {};
       if (shortcutMatches(e, sc.qa)) {
         e.preventDefault();
         e.stopPropagation();
-        triggerQA(false);
-      } else if (shortcutMatches(e, sc.qa_ctx)) {
-        e.preventDefault();
-        e.stopPropagation();
-        triggerQA(true);
+        showQAPromptDialog();
       }
     }, true);
 

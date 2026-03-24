@@ -10,8 +10,8 @@ A lightweight AI editing plugin for [Typora](https://typora.io/) on macOS. Lever
 - **Context-Aware Optimization** — Optimize selected text with full document context for style consistency
 - **AI Image Description** — Right-click any image to get AI-powered analysis and description
 - **Image Resize** — Right-click image to resize (100% / 75% / 50% / 33% / 25% / 10%)
-- **AI Q&A in Document** — Ask AI questions inline; answers are inserted as Markdown blockquotes. Supports "single question" and "full document context" modes
-- **Configurable Shortcuts** — Customize keyboard shortcuts for AI Q&A via the settings panel (default: `⌘E` / `⇧⌘E`)
+- **AI Q&A in Document** — Ask AI questions inline via a prompt dialog; answers are inserted as Markdown blockquotes. Options for web search and full document context
+- **Configurable Shortcuts** — Customize keyboard shortcut for AI Q&A via the settings panel (default: `⌘E`)
 - **Custom Instructions** — Enter additional instructions before each AI action (e.g., "make it more formal", "focus on the chart data")
 - **Auto Language Detection** — Automatically shows Chinese or English UI based on system language
 - **Model Switching** — Switch between GPT-5.4 / GPT-5.4-mini and other models via right-click submenu
@@ -63,11 +63,11 @@ Supports web URLs, local files, and embedded base64 images.
 
 ### AI Q&A
 
-1. Place cursor on a line containing your question (or select question text)
-2. Press **`⌘E`** for single-question Q&A, or **`⇧⌘E`** for full-document-context Q&A
-3. Also available via right-click menu: **"AI Q&A"** / **"AI Q&A (Full Document)"**
-4. The AI response is inserted below the current line as a Markdown blockquote (`> ...`)
-5. Shortcuts are customizable in **AI Edit Settings**
+1. Place cursor anywhere (no text selected) and press **`⌘E`**, or right-click and select **"AI Q&A"**
+2. A dialog appears — type your question, optionally enable **Web Search** and/or **Include full document context**
+3. Click **"Start"** (or `⌘Enter`)
+4. The AI response is inserted below the cursor as a Markdown blockquote (`> ...`)
+5. Shortcut is customizable in **AI Edit Settings**
 
 ### Context Menu
 
@@ -78,8 +78,7 @@ Supports web URLs, local files, and embedded base64 images.
 │ ✦ AI Optimize Selection              │  ← when text is selected
 │ ✦ AI Optimize (With Context)         │
 │ ──────────────────────────────────── │
-│ 💬 AI Q&A                       ⌘E  │
-│ 💬 AI Q&A (Full Document)      ⇧⌘E  │
+│ 💬 AI Q&A                       ⌘E  │  ← when no text selected
 │ ──────────────────────────────────── │
 │ ✂ Cut                          ⌘X   │
 │ ⧉ Copy                         ⌘C   │
@@ -138,12 +137,11 @@ sudo bash bin/uninstall.sh
 
 ### v0.4.0 (2026-03-24)
 
-- **New: AI Q&A in Document** — Ask AI questions directly in Typora; answers are inserted as Markdown blockquotes below the current line
-  - **Single question mode** — AI answers based on the question only (default: `⌘E`)
-  - **Full document context mode** — AI uses the entire document as context (default: `⇧⌘E`)
-  - Also available via right-click context menu
-- **New: Configurable keyboard shortcuts** — Customize Q&A shortcuts in the AI Edit Settings panel; click input field + press key combination to record
-- **New: Q&A prompt customization** — System/user prompts for both Q&A modes are editable in settings
+- **New: AI Q&A in Document** — Press `⌘E` (or right-click → AI Q&A) to open a question dialog; AI answers are inserted as Markdown blockquotes
+  - Prompt dialog with optional **Web Search** and **Include full document context** checkboxes
+  - Only available when no text is selected (selected text uses the existing AI Optimize flow)
+- **New: Configurable keyboard shortcut** — Customize the Q&A shortcut in the AI Edit Settings panel; click input field + press key combination to record
+- **New: Q&A prompt customization** — System/user prompts for Q&A (with and without document context) are editable in settings
 
 ### v0.3.2 (2026-03-24)
 
