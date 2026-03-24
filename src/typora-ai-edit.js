@@ -68,6 +68,7 @@
         copied: "已复制到剪贴板",
         inserted: "已插入到图片下方",
         insertFail: "插入失败，已复制到剪贴板",
+        imageSize: "图片大小",
         stop: "停止",
         loaded: "插件已加载。右键选中文字即可使用 AI 编辑功能。",
       }
@@ -128,6 +129,7 @@
         copied: "Copied to clipboard",
         inserted: "Inserted below image",
         insertFail: "Insert failed \u2014 text copied to clipboard",
+        imageSize: "Image Size",
         stop: "Stop",
         loaded: "Plugin loaded. Right-click on selected text to use AI editing features.",
       };
@@ -653,6 +655,21 @@
         '<div class="ai-menu-item" data-action="describe_image">' +
         '<span class="ai-menu-icon">🖼</span>' + escHTML(L.describeImage) + '</div>';
       html += '<div class="ai-menu-sep"></div>';
+
+      var curZoom = savedImage ? (parseFloat(savedImage.style.zoom) || 1) : 1;
+      var sizes = [1, 0.75, 0.5, 0.33, 0.25, 0.1];
+      html += '<div class="ai-menu-item ai-menu-sub" data-action="size-parent">';
+      html += '<span class="ai-menu-icon">↔</span>' + escHTML(L.imageSize);
+      html += '<span class="ai-menu-arrow">▸</span>';
+      html += '<div class="ai-menu-submenu">';
+      for (var s = 0; s < sizes.length; s++) {
+        var pct = Math.round(sizes[s] * 100);
+        var ck = Math.abs(curZoom - sizes[s]) < 0.01 ? "✓ " : "\u2003";
+        html += '<div class="ai-menu-item" data-action="set-size" data-size="' + sizes[s] + '">' +
+          ck + pct + '%</div>';
+      }
+      html += '</div></div>';
+      html += '<div class="ai-menu-sep"></div>';
     }
 
     if (hasSel) {
@@ -757,7 +774,7 @@
   async function onMenuClick(e) {
     const item = e.target.closest("[data-action]");
     if (!item) return;
-    if (item.dataset.action === "model-parent") return;
+    if (item.dataset.action === "model-parent" || item.dataset.action === "size-parent") return;
 
     const action = item.dataset.action;
     const cfg = loadConfig();
@@ -773,6 +790,12 @@
       return;
     } else if (action === "paste") {
       doPaste();
+      return;
+    } else if (action === "set-size") {
+      if (savedImage) {
+        var size = parseFloat(item.dataset.size);
+        savedImage.style.zoom = size === 1 ? "" : String(size);
+      }
       return;
     } else if (action === "describe_image") {
       showImagePromptDialog(cfg);
