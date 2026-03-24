@@ -9,20 +9,20 @@ Supports ChatGPT Plus OAuth and any OpenAI-compatible API. Everything happens in
 ## Why Typora AI Edit?
 
 - **Write with AI, not in a chat window** — AI edits and answers appear directly in your document, not a separate app
-- **Flowcharts & diagrams via AI** — Ask AI to generate Mermaid flowcharts, sequence diagrams, Gantt charts, etc. — Typora renders them instantly. Edit and refine through follow-up Q&A
+- **Flowcharts & diagrams via AI** — Ask AI to generate flowcharts as HTML/CSS/SVG or Mermaid code — Typora renders them instantly as live visuals. Edit and refine through follow-up Q&A
 - **Cumulative Q&A** — Ask follow-up questions in the same document; the full conversation context is preserved as Markdown, naturally forming a knowledge base
 - **Web search built in** — Let AI search the web for up-to-date information, then write the results directly into your document
-- **Everything is Markdown** — All AI output is native Markdown (text, code blocks, tables, Mermaid diagrams, math). Export to PDF, HTML, or share the `.md` file directly
+- **Everything is Markdown** — All AI output is native Markdown (text, code blocks, tables, HTML/SVG diagrams, Mermaid, math). Export to PDF, HTML, or share the `.md` file directly
 - **Multi-model freedom** — Switch between GPT, Claude, DeepSeek, Qwen, Kimi, or any OpenAI-compatible model with one click
 
 ## Example: AI-Generated Flowchart
 
-Ask AI to generate a Mermaid flowchart — Typora renders it instantly as a live diagram. Edit and refine through follow-up Q&A.
+Ask AI to generate a flowchart — it outputs HTML/CSS/SVG code that Typora renders as a live, styled diagram directly in your document.
 
 ![AI-generated flowchart in Typora](assets/flowchart-example.png)
 
 > **Prompt:** *"Draw a flowchart for a content publishing workflow"*
-> The AI outputs Mermaid code, and Typora renders it as a visual diagram — no extra tools needed. You can ask follow-up questions like *"Add a review step before publishing"* to iteratively refine the diagram.
+> The AI generates an HTML block with CSS styling and SVG graphics. Typora renders it inline as a visual diagram — no extra tools needed. You can ask follow-up questions like *"Add a review step before publishing"* to iteratively refine the diagram. AI can also generate Mermaid code for simpler diagrams.
 
 ## Features
 
@@ -35,7 +35,7 @@ Ask AI to generate a Mermaid flowchart — Typora renders it instantly as a live
 ### AI Q&A & Knowledge Building
 - **Inline AI Q&A** — Press `⌘E` to ask AI questions; answers are inserted as Markdown blockquotes
 - **Cumulative Follow-up** — Keep asking in the same document; enable "Include full document context" so AI remembers everything above
-- **Flowcharts & Diagrams** — Ask AI to draw Mermaid flowcharts, sequence diagrams, class diagrams — rendered live by Typora
+- **Flowcharts & Diagrams** — Ask AI to draw flowcharts (HTML/CSS/SVG or Mermaid), sequence diagrams, class diagrams — rendered live by Typora
 - **Web Search** — Toggle web search for real-time information; AI cites sources inline
 
 ### AI Image Analysis
@@ -105,10 +105,10 @@ The install script will:
 ### AI Q&A & Flowcharts
 
 1. Place cursor anywhere (no text selected), press **`⌘E`** or right-click → **"AI Q&A"**
-2. Type your question — e.g., *"Draw a Mermaid flowchart for a CI/CD pipeline"*
+2. Type your question — e.g., *"Draw an HTML flowchart for a CI/CD pipeline"*
 3. Optionally enable **Web Search** and/or **Include full document context**
 4. Click **"Start"** — AI response is inserted as a Markdown blockquote
-5. For diagrams: Typora instantly renders Mermaid code into visual flowcharts
+5. For diagrams: Typora renders HTML/SVG and Mermaid code into visual flowcharts
 6. Ask follow-up questions to refine — e.g., *"Add a rollback step after deployment failure"*
 
 ### Image Description
@@ -181,7 +181,7 @@ sudo bash bin/uninstall.sh
 | Config Storage | `localStorage` |
 | Image Handling | Local files → base64, web URLs → download & convert, canvas fallback, auto-compress |
 | Context Menu | Intercept `contextmenu` event with custom HTML overlay |
-| Diagram Rendering | AI generates Mermaid code → Typora renders natively |
+| Diagram Rendering | AI generates HTML/CSS/SVG or Mermaid → Typora renders inline |
 
 ## Changelog
 
@@ -239,7 +239,7 @@ sudo bash bin/uninstall.sh
 - Typora upgrades may overwrite `index.html` — re-run `install.sh` after updating Typora
 - Re-login via `oauth-cli-kit` when token expires (ChatGPT OAuth)
 - Press `Option+Command+I` to open Typora DevTools and check `[AI Edit]` logs
-- Typora natively supports Mermaid — AI-generated flowcharts render automatically
+- Typora renders HTML blocks and Mermaid natively — AI-generated diagrams display automatically
 
 ## License
 

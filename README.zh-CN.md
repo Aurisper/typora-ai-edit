@@ -7,20 +7,20 @@
 ## 为什么选择 Typora AI Edit？
 
 - **在文档中写作，而非聊天窗口** — AI 的编辑和回答直接出现在你的文档中，不需要在 App 之间切换
-- **AI 画流程图** — 让 AI 生成 Mermaid 流程图、时序图、甘特图等，Typora 即时渲染为可视化图表。通过追问持续编辑和优化
+- **AI 画流程图** — 让 AI 生成 HTML/CSS/SVG 或 Mermaid 流程图、时序图、甘特图等，Typora 即时渲染为可视化图表。通过追问持续编辑和优化
 - **累计追问** — 在同一文档中持续提问，完整对话上下文保留在 Markdown 中，自然形成知识库
 - **内置联网搜索** — 让 AI 搜索互联网获取最新信息，直接写入你的文档
-- **一切皆 Markdown** — AI 输出的所有内容都是原生 Markdown（文字、代码块、表格、Mermaid 图表、数学公式）。可导出 PDF、HTML，或直接分享 `.md` 文件
+- **一切皆 Markdown** — AI 输出的所有内容都是原生 Markdown（文字、代码块、表格、HTML/SVG 图表、Mermaid、数学公式）。可导出 PDF、HTML，或直接分享 `.md` 文件
 - **多模型自由切换** — GPT、Claude、DeepSeek、Qwen、Kimi 等任意 OpenAI 兼容模型，一键切换
 
 ## 示例：AI 生成流程图
 
-让 AI 生成 Mermaid 流程图 —— Typora 即时渲染为可视化图表。通过追问持续编辑和优化。
+让 AI 生成流程图 —— 输出 HTML/CSS/SVG 代码，Typora 即时渲染为精美的可视化图表。
 
 ![AI 在 Typora 中生成的流程图](assets/flowchart-example.png)
 
 > **提示词：** *"画一个内容发布流程的流程图"*
-> AI 输出 Mermaid 代码，Typora 自动渲染为可视化图表 —— 无需额外工具。你可以继续追问，如 *"在发布前增加一个审核步骤"*，迭代优化图表。
+> AI 生成包含 CSS 样式和 SVG 图形的 HTML 代码块，Typora 在文档中直接渲染为可视化图表 —— 无需额外工具。你可以继续追问，如 *"在发布前增加一个审核步骤"*，迭代优化图表。AI 也支持生成 Mermaid 代码用于更简单的图表。
 
 ## 功能
 
@@ -33,7 +33,7 @@
 ### AI 问答与知识构建
 - **文档内 AI 问答** — 按 `⌘E` 向 AI 提问，回答以 Markdown 引用格式插入
 - **累计追问** — 在同一文档中持续提问，开启"包含全文上下文"让 AI 记住之前的所有内容
-- **流程图与图表** — 让 AI 绘制 Mermaid 流程图、时序图、类图 —— Typora 即时渲染
+- **流程图与图表** — 让 AI 绘制流程图（HTML/CSS/SVG 或 Mermaid）、时序图、类图 —— Typora 即时渲染
 - **联网搜索** — 开启联网搜索获取实时信息，AI 在文档中引用来源
 
 ### AI 图片分析
@@ -103,10 +103,10 @@ sudo bash bin/install.sh
 ### AI 问答与流程图
 
 1. 光标在空白位置（不选中文字），按 **`⌘E`** 或右键 → **「AI 问答」**
-2. 输入问题 — 如 *"画一个 CI/CD 流水线的 Mermaid 流程图"*
+2. 输入问题 — 如 *"画一个 CI/CD 流水线的 HTML 流程图"*
 3. 可选开启 **联网搜索** 和/或 **包含全文上下文**
 4. 点击**「开始」**— AI 回答以 Markdown 引用格式插入
-5. 图表类回答：Typora 即时将 Mermaid 代码渲染为可视化流程图
+5. 图表类回答：Typora 即时渲染 HTML/SVG 和 Mermaid 代码为可视化流程图
 6. 继续追问修改 — 如 *"在部署失败后增加一个回滚步骤"*
 
 ### 图片解读
@@ -179,7 +179,7 @@ sudo bash bin/uninstall.sh
 | 配置存储 | `localStorage` |
 | 图片处理 | 本地文件 → base64，网络 URL → 下载转换，canvas 兜底，自动压缩 |
 | 右键菜单 | 拦截 `contextmenu` 事件，自定义 HTML 浮层 |
-| 图表渲染 | AI 生成 Mermaid 代码 → Typora 原生渲染 |
+| 图表渲染 | AI 生成 HTML/CSS/SVG 或 Mermaid → Typora 内联渲染 |
 
 ## 更新日志
 
@@ -230,7 +230,7 @@ sudo bash bin/uninstall.sh
 - Typora 升级后可能需要重新执行 `install.sh`
 - ChatGPT OAuth Token 过期后需通过 `oauth-cli-kit` 重新登录
 - 按 `Option+Command+I` 可打开 Typora 开发者工具查看 `[AI Edit]` 日志
-- Typora 原生支持 Mermaid —— AI 生成的流程图代码会自动渲染为可视化图表
+- Typora 原生支持 HTML 块和 Mermaid —— AI 生成的图表代码会自动渲染为可视化图表
 
 ## License
 
