@@ -142,10 +142,15 @@ The install script will:
 
 ## Updating the Plugin
 
-After modifying `src/typora-ai-edit.js`:
+After modifying module files in `src/modules/`:
 
 ```bash
+# Rebuild from modules
+bash build.sh
+
+# Deploy to Typora
 sudo cp src/typora-ai-edit.js /Applications/Typora.app/Contents/Resources/TypeMark/ai-edit/typora-ai-edit.js
+
 # Restart Typora
 ```
 
@@ -159,13 +164,28 @@ sudo bash bin/uninstall.sh
 
 ```
 ├── src/
-│   └── typora-ai-edit.js    # Main plugin script (single-file IIFE, no build step)
+│   ├── modules/                # Modular source files (edit these)
+│   │   ├── 01-i18n.js          # Language detection & localized strings
+│   │   ├── 02-config.js        # Constants, defaults, load/save
+│   │   ├── 03-platform.js      # File I/O, token, image helpers
+│   │   ├── 04-api.js           # API calls, SSE parsing, abort
+│   │   ├── 05-model-test.js    # OpenAI model testing
+│   │   ├── 06-editor.js        # Selection, code blocks, replacement
+│   │   ├── 07-ui-core.js       # Toast, clipboard, shortcuts
+│   │   ├── 08-ui-menu.js       # Context menu & paste
+│   │   ├── 09-ui-dialogs.js    # Optimize & image dialogs
+│   │   ├── 10-ui-qa.js         # AI Q&A dialog
+│   │   ├── 11-ui-settings.js   # Settings panel
+│   │   ├── 12-styles.js        # CSS injection
+│   │   └── 13-main.js          # Initialization & event binding
+│   └── typora-ai-edit.js       # Built output (auto-generated, do not edit)
+├── build.sh                    # Build script: modules → single IIFE
 ├── bin/
-│   ├── install.sh           # Install script
-│   └── uninstall.sh         # Uninstall script
+│   ├── install.sh              # Install script
+│   └── uninstall.sh            # Uninstall script
 └── doc/
-    ├── requirements.md      # Requirements document
-    └── development.md       # Development progress & technical details
+    ├── requirements.md         # Requirements document
+    └── development.md          # Development progress & technical details
 ```
 
 ## Technical Overview
@@ -184,6 +204,15 @@ sudo bash bin/uninstall.sh
 | Diagram Rendering | AI generates HTML/CSS/SVG or Mermaid → Typora renders inline |
 
 ## Changelog
+
+### v0.6.0 (2026-03-24)
+
+- **New: Modular codebase** — Split the monolithic 2500-line plugin into 13 focused modules under `src/modules/`, each under 300 lines:
+  - `01-i18n` / `02-config` / `03-platform` / `04-api` / `05-model-test` / `06-editor` / `07-ui-core` / `08-ui-menu` / `09-ui-dialogs` / `10-ui-qa` / `11-ui-settings` / `12-styles` / `13-main`
+- **New: Build script** — `build.sh` concatenates modules in order, wraps in IIFE, outputs deployable `src/typora-ai-edit.js`
+- **Improved: Code block AI editing** — AI Q&A now auto-detects code blocks (CodeMirror & rendered HTML), injects source code into prompts, and offers a "Replace Code Block" button
+- **Improved: HTML block replacement** — File-level Markdown replacement (`fs.writeFileSync` + Typora reload) for reliable rendered HTML block editing
+- **Improved: Streaming dialogs** — All AI operations (Optimize, Image, Q&A) now stream output in the dialog with Stop/Confirm buttons before inserting into the document
 
 ### v0.5.1 (2026-03-24)
 

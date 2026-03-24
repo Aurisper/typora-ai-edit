@@ -1,9 +1,6 @@
 (function () {
   "use strict";
 
-  const CODEX_URL = "https://chatgpt.com/backend-api/codex/responses";
-  const CONFIG_KEY = "typora-ai-edit-config";
-
   // ===================== i18n =====================
 
   var isChinese = /^zh/i.test(
@@ -116,6 +113,12 @@
         webNotSupported: "当前模型不支持联网搜索",
         visionNotSupported: "当前模型不支持图片解析",
         stop: "停止",
+        confirmInsert: "插入",
+        confirmReplace: "替换",
+        confirmOk: "确认",
+        streamWaiting: "等待 AI 响应\u2026",
+        replaceBlock: "替换代码块",
+        codeBlockHint: "（已检测到代码块，AI 将直接修改代码）",
         loaded: "插件已加载。右键选中文字即可使用 AI 编辑功能。",
       }
     : {
@@ -223,8 +226,19 @@
         webNotSupported: "Current model does not support web search",
         visionNotSupported: "Current model does not support image analysis",
         stop: "Stop",
+        confirmInsert: "Insert",
+        confirmReplace: "Replace",
+        confirmOk: "OK",
+        streamWaiting: "Waiting for AI response\u2026",
+        replaceBlock: "Replace Code Block",
+        codeBlockHint: "(Code block detected \u2014 AI will modify code directly)",
         loaded: "Plugin loaded. Right-click on selected text to use AI editing features.",
       };
+
+  // ===================== Config =====================
+
+  const CODEX_URL = "https://chatgpt.com/backend-api/codex/responses";
+  const CONFIG_KEY = "typora-ai-edit-config";
 
   const DEFAULT_CONFIG = {
     provider: "chatgpt",
@@ -297,8 +311,6 @@
     },
   };
 
-  // ===================== Config =====================
-
   function loadConfig() {
     try {
       const saved = localStorage.getItem(CONFIG_KEY);
@@ -322,16 +334,14 @@
     localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
   }
 
-  // ===================== Token =====================
+  // ===================== Platform: File I/O, Token, Image =====================
 
   function getHomePath() {
-    // 1. process.env.HOME
     try {
       if (typeof process !== "undefined" && process.env && process.env.HOME) {
         return process.env.HOME;
       }
     } catch (_) {}
-    // 2. Typora _options.appDataPath → extract home
     try {
       var adp = window._options && window._options.appDataPath;
       if (adp) {
@@ -339,14 +349,12 @@
         if (m) return m[1];
       }
     } catch (_) {}
-    // 3. Typora _options.userPath or similar
     try {
       if (window._options) {
         var up = window._options.userPath || window._options.homePath;
         if (up) return up;
       }
     } catch (_) {}
-    // 4. Try reading from bridge
     try {
       if (window.bridge && window.bridge.callSync) {
         var whoami = window.bridge.callSync("controller.runCommandSync", "whoami");
@@ -355,7 +363,6 @@
         }
       }
     } catch (_) {}
-    // 5. Fallback: derive from document path or __dirname
     try {
       var dp = window.dirname || window.__dirname;
       if (dp) {
@@ -381,7 +388,6 @@
   }
 
   function readFileContent(filePath) {
-    // Method 1: bridge (macOS)
     if (window.bridge && window.bridge.callSync) {
       try {
         var content = window.bridge.callSync("path.readText", filePath);
@@ -390,7 +396,6 @@
         console.warn("[AI Edit] bridge.readText failed:", e);
       }
     }
-    // Method 2: reqnode (Windows/Linux)
     if (window.reqnode) {
       try {
         return window.reqnode("fs").readFileSync(filePath, "utf-8");
@@ -398,13 +403,30 @@
         console.warn("[AI Edit] reqnode.fs failed:", e);
       }
     }
-    // Method 3: Node.js require
     try {
       if (typeof require === "function") {
         return require("fs").readFileSync(filePath, "utf-8");
       }
     } catch (_) {}
     return null;
+  }
+
+  function readToken() {
+    try {
+      var p = getTokenPath();
+      console.log("[AI Edit] Token path:", p);
+      var raw = readFileContent(p);
+      if (!raw) throw new Error("Cannot read token file: " + p);
+      var token = JSON.parse(raw);
+      if (token.expires && Date.now() > token.expires) {
+        throw new Error("Token expired, please run oauth-cli-kit to log in again");
+      }
+      return token;
+    } catch (e) {
+      console.error("[AI Edit] readToken:", e);
+      showToast(L.tokenFailed + e.message, "error", 5000);
+      return null;
+    }
   }
 
   // ===================== Image helpers =====================
@@ -550,27 +572,16 @@
     });
   }
 
-  function readToken() {
-    try {
-      var p = getTokenPath();
-      console.log("[AI Edit] Token path:", p);
-      var raw = readFileContent(p);
-      if (!raw) throw new Error("Cannot read token file: " + p);
-      var token = JSON.parse(raw);
-      if (token.expires && Date.now() > token.expires) {
-        throw new Error("Token expired, please run oauth-cli-kit to log in again");
-      }
-      return token;
-    } catch (e) {
-      console.error("[AI Edit] readToken:", e);
-      showToast(L.tokenFailed + e.message, "error", 5000);
-      return null;
-    }
-  }
-
-  // ===================== Codex API =====================
+  // ===================== API =====================
 
   var currentAbort = null;
+
+  function abortCurrentRequest() {
+    if (currentAbort) {
+      currentAbort.abort();
+      currentAbort = null;
+    }
+  }
 
   async function callCodexAPI(systemPrompt, userPrompt, config, imageDataUrl) {
     var token = readToken();
@@ -624,7 +635,59 @@
       throw new Error("API " + resp.status + ": " + errText.slice(0, 200));
     }
 
-    return await parseSSE(resp);
+    return await parseSSE(resp, config._onChunk);
+  }
+
+  async function parseSSE(resp, onChunk) {
+    var reader = resp.body.getReader();
+    var decoder = new TextDecoder();
+    var buf = "";
+    var result = "";
+
+    try {
+      for (;;) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += decoder.decode(chunk.value, { stream: true });
+
+        var parts = buf.split("\n\n");
+        buf = parts.pop();
+
+        for (var i = 0; i < parts.length; i++) {
+          var data = "";
+          var lines = parts[i].split("\n");
+          for (var j = 0; j < lines.length; j++) {
+            if (lines[j].startsWith("data: ")) data += lines[j].slice(6);
+            else if (lines[j].startsWith("data:")) data += lines[j].slice(5);
+          }
+          data = data.trim();
+          if (!data || data === "[DONE]") continue;
+
+          try {
+            var ev = JSON.parse(data);
+            if (ev.type === "response.output_text.delta" && ev.delta) {
+              result += ev.delta;
+              if (onChunk) onChunk(ev.delta);
+            } else if (
+              ev.type === "error" ||
+              ev.type === "response.failed"
+            ) {
+              throw new Error(
+                "API error: " + (ev.message || JSON.stringify(ev)).slice(0, 200)
+              );
+            }
+          } catch (e) {
+            if (e.message && e.message.startsWith("API error")) throw e;
+          }
+        }
+      }
+    } catch (e) {
+      if (e.name === "AbortError") {
+        throw e;
+      }
+      throw e;
+    }
+    return result;
   }
 
   // ===================== OpenAI Compatible API =====================
@@ -678,10 +741,10 @@
       throw new Error("API " + resp.status + ": " + errText.slice(0, 200));
     }
 
-    return await parseOpenAISSE(resp);
+    return await parseOpenAISSE(resp, config._onChunk);
   }
 
-  async function parseOpenAISSE(resp) {
+  async function parseOpenAISSE(resp, onChunk) {
     var reader = resp.body.getReader();
     var decoder = new TextDecoder();
     var buf = "";
@@ -705,7 +768,9 @@
           try {
             var ev = JSON.parse(data);
             if (ev.choices && ev.choices[0] && ev.choices[0].delta && ev.choices[0].delta.content) {
-              result += ev.choices[0].delta.content;
+              var delta = ev.choices[0].delta.content;
+              result += delta;
+              if (onChunk) onChunk(delta);
             }
           } catch (_) {}
         }
@@ -846,72 +911,91 @@
     return results;
   }
 
-  function abortCurrentRequest() {
-    if (currentAbort) {
-      currentAbort.abort();
-      currentAbort = null;
-    }
-  }
-
-  async function parseSSE(resp) {
-    var reader = resp.body.getReader();
-    var decoder = new TextDecoder();
-    var buf = "";
-    var result = "";
-
-    try {
-      for (;;) {
-        var chunk = await reader.read();
-        if (chunk.done) break;
-        buf += decoder.decode(chunk.value, { stream: true });
-
-        var parts = buf.split("\n\n");
-        buf = parts.pop();
-
-        for (var i = 0; i < parts.length; i++) {
-          var data = "";
-          var lines = parts[i].split("\n");
-          for (var j = 0; j < lines.length; j++) {
-            if (lines[j].startsWith("data: ")) data += lines[j].slice(6);
-            else if (lines[j].startsWith("data:")) data += lines[j].slice(5);
-          }
-          data = data.trim();
-          if (!data || data === "[DONE]") continue;
-
-          try {
-            var ev = JSON.parse(data);
-            if (ev.type === "response.output_text.delta" && ev.delta) {
-              result += ev.delta;
-            } else if (
-              ev.type === "error" ||
-              ev.type === "response.failed"
-            ) {
-              throw new Error(
-                "API error: " + (ev.message || JSON.stringify(ev)).slice(0, 200)
-              );
-            }
-          } catch (e) {
-            if (e.message && e.message.startsWith("API error")) throw e;
-          }
-        }
-      }
-    } catch (e) {
-      if (e.name === "AbortError") {
-        throw e;
-      }
-      throw e;
-    }
-    return result;
-  }
-
   // ===================== Editor helpers =====================
 
   let savedSelection = null;
   let savedImage = null;
 
+  function findSpecialBlock(node) {
+    if (!node) return null;
+    var el = node.nodeType === 3 ? node.parentElement : node;
+    while (el && el.id !== "write" && el !== document.body) {
+      if (el.classList) {
+        if (el.classList.contains("md-htmlblock") || el.classList.contains("md-rawblock")) return el;
+        if (el.classList.contains("md-fences")) return el;
+        if (el.classList.contains("md-math-block")) return el;
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function getBlockCM(blockEl) {
+    var cmEl = blockEl.querySelector(".CodeMirror");
+    return cmEl && cmEl.CodeMirror ? cmEl.CodeMirror : null;
+  }
+
+  function getHtmlBlockSource(blockEl) {
+    var md = getDocumentText();
+    if (!md) return null;
+    var container = blockEl.querySelector(".md-htmlblock-container") || blockEl;
+    var firstEl = container.children && container.children[0];
+    if (!firstEl || !firstEl.tagName) return null;
+    var tagName = firstEl.tagName.toLowerCase();
+    var regex = new RegExp("(<" + tagName + "\\b[\\s\\S]*?<\\/" + tagName + ">)", "gi");
+    var matches = [];
+    var m;
+    while ((m = regex.exec(md)) !== null) {
+      matches.push(m[1]);
+    }
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0];
+    var blockText = container.textContent.replace(/\s+/g, " ").trim();
+    for (var i = 0; i < matches.length; i++) {
+      var tmp = document.createElement("div");
+      tmp.innerHTML = matches[i];
+      if (tmp.textContent.replace(/\s+/g, " ").trim() === blockText) return matches[i];
+    }
+    return matches[0];
+  }
+
+  function getCodeBlockContext() {
+    var sel = window.getSelection();
+    var node = sel && (sel.anchorNode || sel.focusNode);
+    if (!node) return null;
+    var blockEl = findSpecialBlock(node);
+    if (!blockEl) return null;
+    var cm = getBlockCM(blockEl);
+    if (cm) {
+      return { source: cm.getValue(), blockEl: blockEl, cm: cm };
+    }
+    if (blockEl.classList.contains("md-htmlblock") || blockEl.classList.contains("md-rawblock")) {
+      var source = getHtmlBlockSource(blockEl);
+      if (source) {
+        return { source: source, blockEl: blockEl, isRendered: true, originalSource: source };
+      }
+    }
+    return null;
+  }
+
+  function stripCodeFences(text) {
+    var t = text.trim();
+    var m = t.match(/^```[\w-]*\n([\s\S]*?)\n```\s*$/);
+    return m ? m[1] : t;
+  }
+
   function getSelectedText() {
-    const sel = window.getSelection();
-    return sel ? sel.toString() : "";
+    var sel = window.getSelection();
+    var text = sel ? sel.toString() : "";
+    if (text) return text;
+    if (sel && (sel.anchorNode || sel.focusNode)) {
+      var blockEl = findSpecialBlock(sel.anchorNode || sel.focusNode);
+      if (blockEl) {
+        var cm = getBlockCM(blockEl);
+        if (cm) return cm.getSelection() || "";
+      }
+    }
+    return "";
   }
 
   function getDocumentText() {
@@ -923,8 +1007,44 @@
     return "";
   }
 
-  function saveCurrentSelection() {
-    const sel = window.getSelection();
+  function saveCurrentSelection(contextTarget) {
+    var sel = window.getSelection();
+    var node = (sel && (sel.anchorNode || sel.focusNode)) || contextTarget;
+
+    if (node) {
+      var blockEl = findSpecialBlock(node);
+      if (blockEl) {
+        var cm = getBlockCM(blockEl);
+        if (cm) {
+          var cmSel = cm.getSelection();
+          var hasCmSel = cmSel && cmSel.length > 0;
+          savedSelection = {
+            text: hasCmSel ? cmSel : cm.getValue(),
+            isBlock: true,
+            blockCM: cm,
+            blockEl: blockEl,
+            cmFrom: hasCmSel ? cm.getCursor("from") : null,
+            cmTo: hasCmSel ? cm.getCursor("to") : null,
+            fullBlock: !hasCmSel,
+          };
+          return;
+        }
+        if (blockEl.classList.contains("md-htmlblock") || blockEl.classList.contains("md-rawblock")) {
+          var source = getHtmlBlockSource(blockEl);
+          if (source) {
+            savedSelection = {
+              text: source,
+              isBlock: true,
+              isRendered: true,
+              blockEl: blockEl,
+              originalSource: source,
+            };
+            return;
+          }
+        }
+      }
+    }
+
     if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
       savedSelection = {
         range: sel.getRangeAt(0).cloneRange(),
@@ -934,7 +1054,7 @@
   }
 
   function restoreSelection() {
-    if (!savedSelection) return;
+    if (!savedSelection || !savedSelection.range) return;
     try {
       var sel = window.getSelection();
       sel.removeAllRanges();
@@ -944,9 +1064,27 @@
     }
   }
 
-  function restoreAndReplace(newText) {
+  async function restoreAndReplace(newText) {
     if (!savedSelection) return false;
     try {
+      if (savedSelection.isBlock && savedSelection.blockCM) {
+        var cm = savedSelection.blockCM;
+        if (savedSelection.fullBlock) {
+          cm.setValue(newText);
+        } else {
+          cm.setSelection(savedSelection.cmFrom, savedSelection.cmTo);
+          cm.replaceSelection(newText);
+        }
+        savedSelection = null;
+        return true;
+      }
+
+      if (savedSelection.isBlock && savedSelection.isRendered) {
+        var ok = await replaceInMarkdown(savedSelection.originalSource, newText);
+        savedSelection = null;
+        return ok;
+      }
+
       restoreSelection();
       document.execCommand("insertText", false, newText);
       savedSelection = null;
@@ -957,7 +1095,83 @@
     }
   }
 
-  // ===================== Toast =====================
+  function sleep(ms) {
+    return new Promise(function (r) { setTimeout(r, ms); });
+  }
+
+  async function replaceInMarkdown(oldSource, newSource) {
+    try {
+      var md = getDocumentText();
+      if (!md || md.indexOf(oldSource) === -1) {
+        writeToClipboard(newSource);
+        return false;
+      }
+      var newMd = md.replace(oldSource, newSource);
+      var filePath = null;
+      try { filePath = window.File && window.File.filePath; } catch (_) {}
+      if (!filePath) try { filePath = window.File && window.File.bundle && window.File.bundle.filePath; } catch (_) {}
+      if (!filePath) {
+        try {
+          var u = decodeURIComponent(window.location.pathname);
+          if (u && u.endsWith(".md")) filePath = u;
+        } catch (_) {}
+      }
+      if (filePath) {
+        var fs = null;
+        try { fs = (window.reqnode || require)("fs"); } catch (_) {}
+        if (fs) {
+          fs.writeFileSync(filePath, newMd, "utf8");
+          await sleep(150);
+          try {
+            if (window.File && typeof window.File.reloadContent === "function") {
+              window.File.reloadContent(true, function () {});
+              return true;
+            }
+          } catch (_) {}
+          try {
+            if (window.File && window.File.editor && typeof window.File.editor.reload === "function") {
+              window.File.editor.reload();
+              return true;
+            }
+          } catch (_) {}
+          location.reload();
+          return true;
+        }
+      }
+    } catch (e) {
+      console.error("[AI Edit] replaceInMarkdown:", e);
+    }
+    writeToClipboard(newSource);
+    return false;
+  }
+
+  async function replaceCodeBlock(codeCtx, newText) {
+    try {
+      if (codeCtx.cm) {
+        try {
+          codeCtx.cm.setValue(newText);
+          return true;
+        } catch (e) {
+          console.warn("[AI Edit] CM setValue failed:", e);
+        }
+      }
+      return await replaceInMarkdown(codeCtx.originalSource || codeCtx.source, newText);
+    } catch (e) {
+      console.error("[AI Edit] replaceCodeBlock:", e);
+      writeToClipboard(newText);
+      return false;
+    }
+  }
+
+  // ===================== UI Core: Toast, Clipboard, Shortcuts =====================
+
+  function escHTML(s) {
+    return s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
 
   function showToast(msg, type, duration) {
     if (duration === undefined) duration = 3000;
@@ -972,16 +1186,64 @@
     requestAnimationFrame(function () {
       el.classList.add("show");
     });
-
-    if (duration > 0) {
+    setTimeout(function () {
+      el.classList.remove("show");
       setTimeout(function () {
-        el.classList.remove("show");
-        setTimeout(function () {
-          el.remove();
-        }, 300);
-      }, duration);
+        el.remove();
+      }, 300);
+    }, duration);
+  }
+
+  function writeToClipboard(text) {
+    try {
+      var cb = (window.reqnode || require)("electron").clipboard;
+      cb.writeText(text);
+      return;
+    } catch (_) {}
+    try { navigator.clipboard.writeText(text); } catch (_) {}
+  }
+
+  function insertAfterImage(text) {
+    if (!savedImage) return;
+    try {
+      var imgBlock = savedImage.closest("[cid]") || savedImage.closest("p") || savedImage.parentNode;
+      var range = document.createRange();
+      range.setStartAfter(imgBlock);
+      range.collapse(true);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.execCommand("insertText", false, "\n" + text);
+      showToast(L.inserted, "success");
+    } catch (e) {
+      console.error("[AI Edit] insertAfterImage:", e);
+      writeToClipboard(text);
+      showToast(L.insertFail, "error");
     }
-    return el;
+  }
+
+  // ===================== Shortcut helpers =====================
+
+  function shortcutDisplay(sc) {
+    if (!sc) return "";
+    var parts = [];
+    if (sc.metaKey) parts.push("\u2318");
+    if (sc.ctrlKey) parts.push("\u2303");
+    if (sc.altKey) parts.push("\u2325");
+    if (sc.shiftKey) parts.push("\u21E7");
+    parts.push(sc.key.toUpperCase());
+    return parts.join("");
+  }
+
+  function shortcutMatches(e, sc) {
+    if (!sc) return false;
+    return (
+      e.key.toLowerCase() === sc.key.toLowerCase() &&
+      !!e.metaKey === !!sc.metaKey &&
+      !!e.shiftKey === !!sc.shiftKey &&
+      !!e.ctrlKey === !!sc.ctrlKey &&
+      !!e.altKey === !!sc.altKey
+    );
   }
 
   function showProgressToast(msg) {
@@ -1013,6 +1275,26 @@
       el.classList.add("show");
     });
     return el;
+  }
+
+  function initShortcutRecorder(inputId, currentSc) {
+    var el = document.getElementById(inputId);
+    if (!el) return;
+    el._shortcut = currentSc ? { ...currentSc } : null;
+    el.addEventListener("keydown", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (["Meta", "Control", "Alt", "Shift"].indexOf(e.key) >= 0) return;
+      var sc = {
+        key: e.key.toLowerCase(),
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+        ctrlKey: e.ctrlKey,
+        altKey: e.altKey,
+      };
+      el._shortcut = sc;
+      el.value = shortcutDisplay(sc);
+    });
   }
 
   // ===================== Context Menu =====================
@@ -1057,7 +1339,6 @@
       html += '<div class="ai-menu-sep"></div>';
     }
 
-    // AI Q&A (only when no text selected)
     if (!hasSel) {
       html +=
         '<div class="ai-menu-item" data-action="qa">' +
@@ -1066,7 +1347,6 @@
       html += '<div class="ai-menu-sep"></div>';
     }
 
-    // Standard edit operations
     if (hasSel) {
       html +=
         '<div class="ai-menu-item" data-action="cut">' +
@@ -1083,7 +1363,6 @@
       '<span class="ai-menu-shortcut">⌘V</span></div>';
     html += '<div class="ai-menu-sep"></div>';
 
-    // AI settings section
     html += '<div class="ai-menu-item ai-menu-sub" data-action="model-parent">';
     html += '<span class="ai-menu-icon">⚙</span>' + escHTML(L.aiModel);
     html += '<span class="ai-menu-arrow">▸</span>';
@@ -1248,7 +1527,108 @@
     }
   }
 
-  // ===================== Prompt Dialog =====================
+  // ===================== Prompt Dialog Helpers =====================
+
+  function buildPromptDialogHTML(title, label, placeholder, inputId, cfg, opts) {
+    opts = opts || {};
+    var extra = opts.extraCheckboxes || "";
+    var caps = getModelCapabilities(cfg);
+    var webDisabled = cfg.provider === "openai_compat" && !caps.web_search;
+
+    return '<div class="ai-prompt-panel">' +
+      '<div class="ai-edit-panel-header">' +
+      "<h3>" + escHTML(title) + "</h3>" +
+      '<button class="ai-edit-close" data-action="close">&times;</button>' +
+      "</div>" +
+      '<div class="ai-prompt-body">' +
+      "<label id='ai-stream-label'>" + escHTML(label) + "</label>" +
+      '<textarea id="' + inputId + '" rows="5" placeholder="' + escHTML(placeholder) + '"></textarea>' +
+      '<div class="ai-prompt-options" id="ai-stream-options">' +
+      '<label class="ai-prompt-checkbox" style="' + (webDisabled ? "opacity:.4" : "") + '"><input type="checkbox" id="ai-prompt-web" ' +
+      (cfg.web_search && !webDisabled ? "checked" : "") +
+      (webDisabled ? " disabled" : "") +
+      "> " + escHTML(L.webSearch) + "</label>" +
+      extra +
+      "</div>" +
+      "</div>" +
+      '<div class="ai-edit-panel-footer" id="ai-stream-footer">' +
+      '<button class="ai-btn secondary" data-action="close">' + escHTML(L.cancel) + '</button>' +
+      '<div class="ai-edit-spacer"></div>' +
+      '<button class="ai-btn primary" data-action="go">' + escHTML(L.start) + '</button>' +
+      "</div>" +
+      "</div>";
+  }
+
+  function transformToStreaming(overlay, inputId) {
+    var inputEl = document.getElementById(inputId);
+    if (inputEl) {
+      inputEl.readOnly = true;
+      inputEl.value = L.streamWaiting;
+      inputEl.style.fontFamily = "-apple-system,BlinkMacSystemFont,sans-serif";
+      inputEl.style.fontSize = "13px";
+      inputEl.style.lineHeight = "1.6";
+      inputEl.rows = 12;
+      inputEl.style.color = "inherit";
+      inputEl.style.cursor = "default";
+    }
+    var optionsEl = document.getElementById("ai-stream-options");
+    if (optionsEl) optionsEl.style.display = "none";
+    var labelEl = document.getElementById("ai-stream-label");
+    if (labelEl) labelEl.style.display = "none";
+
+    var footer = document.getElementById("ai-stream-footer");
+    if (footer) {
+      footer.innerHTML =
+        '<button class="ai-btn secondary" data-action="stop" style="background:#d93025;color:#fff">' + escHTML(L.stop) + '</button>' +
+        '<div class="ai-edit-spacer"></div>';
+    }
+
+    return {
+      outputEl: inputEl,
+      started: false,
+      append: function (delta) {
+        if (!this.started) {
+          this.started = true;
+          if (this.outputEl) this.outputEl.value = "";
+        }
+        if (this.outputEl) {
+          this.outputEl.value += delta;
+          this.outputEl.scrollTop = this.outputEl.scrollHeight;
+        }
+      },
+      showResult: function (confirmLabel, extraButtons) {
+        if (footer) {
+          var html = '<button class="ai-btn secondary" data-action="copy">' + escHTML(L.copyBtn) + '</button>' +
+            '<div class="ai-edit-spacer"></div>' +
+            '<button class="ai-btn secondary" data-action="close">' + escHTML(L.cancel) + '</button>';
+          if (extraButtons) html += extraButtons;
+          html += '<button class="ai-btn primary" data-action="confirm">' + escHTML(confirmLabel) + '</button>';
+          footer.innerHTML = html;
+        }
+        if (this.outputEl) {
+          this.outputEl.readOnly = false;
+          this.outputEl.style.cursor = "";
+        }
+      },
+      showError: function (msg) {
+        if (this.outputEl) {
+          this.outputEl.value += "\n\n--- ERROR ---\n" + msg;
+          this.outputEl.scrollTop = this.outputEl.scrollHeight;
+          this.outputEl.style.color = "#d93025";
+        }
+        if (footer) {
+          footer.innerHTML =
+            '<div class="ai-edit-spacer"></div>' +
+            '<button class="ai-btn primary" data-action="close">' + escHTML(L.confirmOk) + '</button>';
+        }
+      },
+      getResult: function () {
+        return this.outputEl ? this.outputEl.value : "";
+      },
+    };
+  }
+
+  // ===================== Optimize Prompt Dialog =====================
 
   function showPromptDialog(cfg, withContext) {
     var existing = document.getElementById("ai-edit-prompt-dialog");
@@ -1259,32 +1639,7 @@
     overlay.className = "ai-edit-overlay";
 
     var title = withContext ? L.optimizeCtxTitle : L.optimizeTitle;
-    var mc = getModelCapabilities(cfg);
-    var webDisabled = cfg.provider === "openai_compat" && !mc.web_search;
-
-    overlay.innerHTML =
-      '<div class="ai-prompt-panel">' +
-      '<div class="ai-edit-panel-header">' +
-      "<h3>" + escHTML(title) + "</h3>" +
-      '<button class="ai-edit-close" data-action="close">&times;</button>' +
-      "</div>" +
-      '<div class="ai-prompt-body">' +
-      "<label>" + escHTML(L.extraLabel) + "</label>" +
-      '<textarea id="ai-prompt-input" rows="4" placeholder="' + escHTML(L.extraPlaceholder) + '"></textarea>' +
-      '<div class="ai-prompt-options">' +
-      '<label class="ai-prompt-checkbox" style="' + (webDisabled ? "opacity:.4" : "") + '"><input type="checkbox" id="ai-prompt-web" ' +
-      (cfg.web_search && !webDisabled ? "checked" : "") +
-      (webDisabled ? " disabled" : "") +
-      "> " + escHTML(L.webSearch) + "</label>" +
-      "</div>" +
-      "</div>" +
-      '<div class="ai-edit-panel-footer">' +
-      '<button class="ai-btn secondary" data-action="close">' + escHTML(L.cancel) + '</button>' +
-      '<div class="ai-edit-spacer"></div>' +
-      '<button class="ai-btn primary" data-action="go">' + escHTML(L.start) + '</button>' +
-      "</div>" +
-      "</div>";
-
+    overlay.innerHTML = buildPromptDialogHTML(title, L.extraLabel, L.extraPlaceholder, "ai-prompt-input", cfg);
     document.body.appendChild(overlay);
 
     var inputEl = document.getElementById("ai-prompt-input");
@@ -1297,27 +1652,68 @@
       }
     });
 
+    var running = false;
     overlay.addEventListener("click", function (e) {
       var btn = e.target.closest("[data-action]");
-      if (!btn) {
-        if (e.target === overlay) overlay.remove();
-        return;
-      }
-      if (btn.dataset.action === "close") {
+      if (!btn) { if (e.target === overlay && !running) overlay.remove(); return; }
+      var act = btn.dataset.action;
+      if (act === "close") { overlay.remove(); }
+      else if (act === "go") { doGo(); }
+      else if (act === "stop") { abortCurrentRequest(); }
+      else if (act === "copy") { writeToClipboard(stream.getResult()); showToast(L.copied, "success"); }
+      else if (act === "confirm") {
+        var result = stream.getResult().trim();
         overlay.remove();
-      } else if (btn.dataset.action === "go") {
-        doGo();
+        if (result) {
+          (async function () {
+            var ok = await restoreAndReplace(result);
+            showToast(ok ? L.optDone : L.optReplaceFail, ok ? "success" : "error");
+          })();
+        }
       }
     });
 
+    var stream;
     function doGo() {
+      if (running) return;
       var extraPrompt = document.getElementById("ai-prompt-input").value.trim();
       var useWeb = document.getElementById("ai-prompt-web").checked;
-      overlay.remove();
+
+      if (!savedSelection || !savedSelection.text) { showToast(L.selectFirst, "error"); return; }
+      running = true;
+      stream = transformToStreaming(overlay, "ai-prompt-input");
+
+      var key = withContext ? "optimize_with_context" : "optimize";
+      var prompts = cfg.prompts[key];
+      if (!prompts) { stream.showError(L.promptMissing); running = false; return; }
+
+      var selText = savedSelection.text;
+      var docText = withContext ? getDocumentText() : "";
+      var userPrompt = prompts.user.replace(/\{selection\}/g, selText).replace(/\{document\}/g, docText);
+      if (extraPrompt) userPrompt = L.extraReq + extraPrompt + "\n\n" + userPrompt;
 
       var runCfg = JSON.parse(JSON.stringify(cfg));
       runCfg.web_search = useWeb;
-      doOptimize(runCfg, withContext, extraPrompt);
+      runCfg._onChunk = function (delta) { stream.append(delta); };
+
+      callAPI(prompts.system, userPrompt, runCfg).then(function (result) {
+        currentAbort = null;
+        running = false;
+        if (result && result.trim()) {
+          stream.showResult(L.confirmReplace);
+        } else {
+          stream.showError(L.emptyResult);
+        }
+      }).catch(function (e) {
+        currentAbort = null;
+        running = false;
+        if (e.name === "AbortError") {
+          stream.showResult(L.confirmReplace);
+        } else {
+          stream.showError(e.message);
+          console.error("[AI Edit]", e);
+        }
+      });
     }
   }
 
@@ -1331,219 +1727,88 @@
     overlay.id = "ai-edit-prompt-dialog";
     overlay.className = "ai-edit-overlay";
 
-    var mc = getModelCapabilities(cfg);
-    var webDisabled = cfg.provider === "openai_compat" && !mc.web_search;
-
-    overlay.innerHTML =
-      '<div class="ai-prompt-panel">' +
-      '<div class="ai-edit-panel-header">' +
-      "<h3>" + escHTML(L.imgTitle) + "</h3>" +
-      '<button class="ai-edit-close" data-action="close">&times;</button>' +
-      "</div>" +
-      '<div class="ai-prompt-body">' +
-      "<label>" + escHTML(L.imgLabel) + "</label>" +
-      '<textarea id="ai-prompt-input" rows="4" placeholder="' + escHTML(L.imgPlaceholder) + '"></textarea>' +
-      '<div class="ai-prompt-options">' +
-      '<label class="ai-prompt-checkbox" style="' + (webDisabled ? "opacity:.4" : "") + '"><input type="checkbox" id="ai-prompt-web" ' +
-      (cfg.web_search && !webDisabled ? "checked" : "") +
-      (webDisabled ? " disabled" : "") +
-      "> " + escHTML(L.webSearch) + "</label>" +
-      "</div>" +
-      "</div>" +
-      '<div class="ai-edit-panel-footer">' +
-      '<button class="ai-btn secondary" data-action="close">' + escHTML(L.cancel) + '</button>' +
-      '<div class="ai-edit-spacer"></div>' +
-      '<button class="ai-btn primary" data-action="go">' + escHTML(L.start) + '</button>' +
-      "</div>" +
-      "</div>";
-
+    overlay.innerHTML = buildPromptDialogHTML(L.imgTitle, L.imgLabel, L.imgPlaceholder, "ai-prompt-input", cfg);
     document.body.appendChild(overlay);
 
     var inputEl = document.getElementById("ai-prompt-input");
     setTimeout(function () { inputEl.focus(); }, 50);
 
     inputEl.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        doGo();
-      }
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doGo(); }
     });
 
+    var running = false;
+    var stream;
     overlay.addEventListener("click", function (e) {
       var btn = e.target.closest("[data-action]");
-      if (!btn) {
-        if (e.target === overlay) overlay.remove();
-        return;
-      }
-      if (btn.dataset.action === "close") {
+      if (!btn) { if (e.target === overlay && !running) overlay.remove(); return; }
+      var act = btn.dataset.action;
+      if (act === "close") { overlay.remove(); }
+      else if (act === "go") { doGo(); }
+      else if (act === "stop") { abortCurrentRequest(); }
+      else if (act === "copy") { writeToClipboard(stream.getResult()); showToast(L.copied, "success"); }
+      else if (act === "insert-img") {
+        var result = stream.getResult().trim();
+        if (result) insertAfterImage(result);
         overlay.remove();
-      } else if (btn.dataset.action === "go") {
-        doGo();
+      }
+      else if (act === "confirm") {
+        var result = stream.getResult().trim();
+        if (result) { writeToClipboard(result); showToast(L.copied, "success"); }
+        overlay.remove();
       }
     });
 
-    function doGo() {
+    async function doGo() {
+      if (running) return;
       var extraPrompt = document.getElementById("ai-prompt-input").value.trim();
       var useWeb = document.getElementById("ai-prompt-web").checked;
-      overlay.remove();
+
+      if (!savedImage) { showToast(L.noImage, "error"); return; }
+      running = true;
+      stream = transformToStreaming(overlay, "ai-prompt-input");
+
+      var imageUrl = await getImageDataUrl(savedImage);
+      if (!imageUrl) { stream.showError(L.imgReadFail); running = false; return; }
+      imageUrl = await compressImageDataUrl(imageUrl);
+
+      var prompts = cfg.prompts.describe_image || DEFAULT_CONFIG.prompts.describe_image;
+      var systemPrompt, userPrompt;
+      if (extraPrompt) {
+        systemPrompt = isChinese
+          ? "你是一位智能助手，请根据用户的指示分析图片并回答。"
+          : "You are a helpful assistant. Analyze the image and respond according to the user's instructions.";
+        userPrompt = extraPrompt;
+      } else {
+        systemPrompt = prompts.system;
+        userPrompt = prompts.user;
+      }
 
       var runCfg = JSON.parse(JSON.stringify(cfg));
       runCfg.web_search = useWeb;
-      doDescribeImage(runCfg, extraPrompt);
+      runCfg._onChunk = function (delta) { stream.append(delta); };
+
+      callAPI(systemPrompt, userPrompt, runCfg, imageUrl).then(function (result) {
+        currentAbort = null;
+        running = false;
+        if (result && result.trim()) {
+          var insertBtn = '<button class="ai-btn primary" data-action="insert-img" style="margin-right:8px">' + escHTML(L.insertBtn) + '</button>';
+          stream.showResult(L.copyBtn, insertBtn);
+        } else {
+          stream.showError(L.emptyResult);
+        }
+      }).catch(function (e) {
+        currentAbort = null;
+        running = false;
+        if (e.name === "AbortError") {
+          var insertBtn = '<button class="ai-btn primary" data-action="insert-img" style="margin-right:8px">' + escHTML(L.insertBtn) + '</button>';
+          stream.showResult(L.copyBtn, insertBtn);
+        } else {
+          stream.showError(e.message);
+          console.error("[AI Edit]", e);
+        }
+      });
     }
-  }
-
-  // ===================== Describe Image =====================
-
-  async function doDescribeImage(cfg, extraPrompt) {
-    if (!savedImage) {
-      showToast(L.noImage, "error");
-      return;
-    }
-
-    var imageUrl = await getImageDataUrl(savedImage);
-    if (!imageUrl) {
-      showToast(L.imgReadFail, "error");
-      return;
-    }
-
-    imageUrl = await compressImageDataUrl(imageUrl);
-
-    var prompts = cfg.prompts.describe_image || DEFAULT_CONFIG.prompts.describe_image;
-    var systemPrompt, userPrompt;
-    if (extraPrompt) {
-      systemPrompt = isChinese
-        ? "你是一位智能助手，请根据用户的指示分析图片并回答。"
-        : "You are a helpful assistant. Analyze the image and respond according to the user's instructions.";
-      userPrompt = extraPrompt;
-    } else {
-      systemPrompt = prompts.system;
-      userPrompt = prompts.user;
-    }
-
-    var toast = showProgressToast(L.analyzing);
-
-    try {
-      var result = await callAPI(systemPrompt, userPrompt, cfg, imageUrl);
-      toast.remove();
-      if (result && result.trim()) {
-        showImageResultDialog(result.trim());
-      } else {
-        showToast(L.emptyResult, "error");
-      }
-    } catch (e) {
-      toast.remove();
-      if (e.name === "AbortError") {
-        showToast(L.anaStopped, "info");
-      } else {
-        showToast(L.anaFailed + e.message, "error");
-        console.error("[AI Edit]", e);
-      }
-    } finally {
-      currentAbort = null;
-    }
-  }
-
-  // ===================== Image Result Dialog =====================
-
-  function showImageResultDialog(text) {
-    var existing = document.getElementById("ai-edit-result-dialog");
-    if (existing) existing.remove();
-
-    var overlay = document.createElement("div");
-    overlay.id = "ai-edit-result-dialog";
-    overlay.className = "ai-edit-overlay";
-
-    overlay.innerHTML =
-      '<div class="ai-prompt-panel ai-result-panel">' +
-      '<div class="ai-edit-panel-header">' +
-      "<h3>" + escHTML(L.imgResultTitle) + "</h3>" +
-      '<button class="ai-edit-close" data-action="close">&times;</button>' +
-      "</div>" +
-      '<div class="ai-prompt-body">' +
-      '<textarea id="ai-result-text" rows="12">' + escHTML(text) + "</textarea>" +
-      "</div>" +
-      '<div class="ai-edit-panel-footer">' +
-      '<button class="ai-btn secondary" data-action="copy">' + escHTML(L.copyBtn) + '</button>' +
-      '<div class="ai-edit-spacer"></div>' +
-      '<button class="ai-btn secondary" data-action="close">' + escHTML(L.closeBtn) + '</button>' +
-      '<button class="ai-btn primary" data-action="insert">' + escHTML(L.insertBtn) + '</button>' +
-      "</div>" +
-      "</div>";
-
-    document.body.appendChild(overlay);
-
-    overlay.addEventListener("click", function (e) {
-      var btn = e.target.closest("[data-action]");
-      if (!btn) {
-        if (e.target === overlay) overlay.remove();
-        return;
-      }
-      var act = btn.dataset.action;
-      if (act === "close") {
-        overlay.remove();
-      } else if (act === "copy") {
-        var resultText = document.getElementById("ai-result-text").value;
-        writeToClipboard(resultText);
-        showToast(L.copied, "success");
-      } else if (act === "insert") {
-        var resultText = document.getElementById("ai-result-text").value;
-        insertAfterImage(resultText);
-        overlay.remove();
-      }
-    });
-  }
-
-  function writeToClipboard(text) {
-    try {
-      var cb = (window.reqnode || require)("electron").clipboard;
-      cb.writeText(text);
-      return;
-    } catch (_) {}
-    try { navigator.clipboard.writeText(text); } catch (_) {}
-  }
-
-  function insertAfterImage(text) {
-    if (!savedImage) return;
-    try {
-      var imgBlock = savedImage.closest("[cid]") || savedImage.closest("p") || savedImage.parentNode;
-      var range = document.createRange();
-      range.setStartAfter(imgBlock);
-      range.collapse(true);
-      var sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
-      document.execCommand("insertText", false, "\n" + text);
-      showToast(L.inserted, "success");
-    } catch (e) {
-      console.error("[AI Edit] insertAfterImage:", e);
-      writeToClipboard(text);
-      showToast(L.insertFail, "error");
-    }
-  }
-
-  // ===================== Shortcut helpers =====================
-
-  function shortcutDisplay(sc) {
-    if (!sc) return "";
-    var parts = [];
-    if (sc.metaKey) parts.push("\u2318");
-    if (sc.ctrlKey) parts.push("\u2303");
-    if (sc.altKey) parts.push("\u2325");
-    if (sc.shiftKey) parts.push("\u21E7");
-    parts.push(sc.key.toUpperCase());
-    return parts.join("");
-  }
-
-  function shortcutMatches(e, sc) {
-    if (!sc) return false;
-    return (
-      e.key.toLowerCase() === sc.key.toLowerCase() &&
-      !!e.metaKey === !!sc.metaKey &&
-      !!e.shiftKey === !!sc.shiftKey &&
-      !!e.ctrlKey === !!sc.ctrlKey &&
-      !!e.altKey === !!sc.altKey
-    );
   }
 
   // ===================== AI Q&A =====================
@@ -1552,111 +1817,128 @@
     var existing = document.getElementById("ai-edit-prompt-dialog");
     if (existing) existing.remove();
 
+    var codeCtx = getCodeBlockContext();
+
     var cfg = loadConfig();
-    var mc = getModelCapabilities(cfg);
-    var webDisabled = cfg.provider === "openai_compat" && !mc.web_search;
+    var ctxCheckbox = '<label class="ai-prompt-checkbox" style="margin-left:16px"><input type="checkbox" id="ai-qa-ctx"> ' +
+      escHTML(L.qaIncludeDoc) + "</label>";
 
     var overlay = document.createElement("div");
     overlay.id = "ai-edit-prompt-dialog";
     overlay.className = "ai-edit-overlay";
 
-    overlay.innerHTML =
-      '<div class="ai-prompt-panel">' +
-      '<div class="ai-edit-panel-header">' +
-      "<h3>" + escHTML(L.qaTitle) + "</h3>" +
-      '<button class="ai-edit-close" data-action="close">&times;</button>' +
-      "</div>" +
-      '<div class="ai-prompt-body">' +
-      "<label>" + escHTML(L.qaLabel) + "</label>" +
-      '<textarea id="ai-qa-input" rows="5" placeholder="' + escHTML(L.qaPlaceholder) + '"></textarea>' +
-      '<div class="ai-prompt-options">' +
-      '<label class="ai-prompt-checkbox" style="' + (webDisabled ? "opacity:.4" : "") + '"><input type="checkbox" id="ai-qa-web" ' +
-      (cfg.web_search && !webDisabled ? "checked" : "") +
-      (webDisabled ? " disabled" : "") +
-      "> " + escHTML(L.webSearch) + "</label>" +
-      '<label class="ai-prompt-checkbox" style="margin-left:16px"><input type="checkbox" id="ai-qa-ctx"> ' +
-      escHTML(L.qaIncludeDoc) + "</label>" +
-      "</div>" +
-      "</div>" +
-      '<div class="ai-edit-panel-footer">' +
-      '<button class="ai-btn secondary" data-action="close">' + escHTML(L.cancel) + '</button>' +
-      '<div class="ai-edit-spacer"></div>' +
-      '<button class="ai-btn primary" data-action="go">' + escHTML(L.start) + '</button>' +
-      "</div>" +
-      "</div>";
-
+    overlay.innerHTML = buildPromptDialogHTML(L.qaTitle, L.qaLabel, L.qaPlaceholder, "ai-qa-input", cfg, { extraCheckboxes: ctxCheckbox });
     document.body.appendChild(overlay);
+
+    if (codeCtx) {
+      var hintEl = document.createElement("div");
+      hintEl.style.cssText = "padding:4px 20px 0;font-size:12px;color:#1a73e8;font-weight:500";
+      hintEl.textContent = L.codeBlockHint;
+      var body = overlay.querySelector(".ai-prompt-body");
+      if (body) body.insertBefore(hintEl, body.firstChild);
+    }
 
     var inputEl = document.getElementById("ai-qa-input");
     setTimeout(function () { inputEl.focus(); }, 50);
 
     inputEl.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        doGo();
-      }
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doGo(); }
     });
 
+    var running = false;
+    var stream;
     overlay.addEventListener("click", function (e) {
       var btn = e.target.closest("[data-action]");
-      if (!btn) {
-        if (e.target === overlay) overlay.remove();
-        return;
+      if (!btn) { if (e.target === overlay && !running) overlay.remove(); return; }
+      var act = btn.dataset.action;
+      if (act === "close") { overlay.remove(); }
+      else if (act === "go") { doGo(); }
+      else if (act === "stop") { abortCurrentRequest(); }
+      else if (act === "copy") { writeToClipboard(stream.getResult()); showToast(L.copied, "success"); }
+      else if (act === "replace-block") {
+        var result = stripCodeFences(stream.getResult());
+        if (result && codeCtx) {
+          (async function () {
+            overlay.remove();
+            var ok = await replaceCodeBlock(codeCtx, result);
+            showToast(ok ? L.optDone : L.optReplaceFail, ok ? "success" : "error");
+          })();
+        }
       }
-      if (btn.dataset.action === "close") {
+      else if (act === "confirm") {
+        var result = stream.getResult().trim();
+        if (result) {
+          insertQAResponse(result);
+          showToast(L.qaDone, "success");
+        }
         overlay.remove();
-      } else if (btn.dataset.action === "go") {
-        doGo();
       }
     });
 
     function doGo() {
+      if (running) return;
       var question = document.getElementById("ai-qa-input").value.trim();
       if (!question) return;
-      var useWeb = document.getElementById("ai-qa-web").checked;
+      var useWeb = document.getElementById("ai-prompt-web").checked;
       var withContext = document.getElementById("ai-qa-ctx").checked;
-      overlay.remove();
+
+      running = true;
+      stream = transformToStreaming(overlay, "ai-qa-input");
+
+      var systemPrompt, userPrompt;
+
+      if (codeCtx) {
+        systemPrompt = isChinese
+          ? "你是一位编程助手。用户正在编辑一个代码块。如果用户要求修改代码，请直接返回完整的修改后代码，不要添加任何解释、markdown 标记或代码围栏（```）。如果用户询问关于代码的问题，请用 Markdown 格式回答。"
+          : "You are a coding assistant. The user is editing a code block. If the user asks to modify the code, return ONLY the complete modified code without any explanation, markdown formatting, or code fences (```). If the user asks a question about the code, respond in Markdown format.";
+        userPrompt = (isChinese ? "代码块内容：\n\n" : "Code block:\n\n") +
+          codeCtx.source + "\n\n" +
+          (isChinese ? "用户要求：" : "User request: ") + question;
+        if (withContext) {
+          userPrompt += "\n\n" + (isChinese ? "完整文档上下文：\n\n<document>\n" : "Full document context:\n\n<document>\n") +
+            getDocumentText() + "\n</document>";
+        }
+      } else {
+        var key = withContext ? "qa_with_context" : "qa";
+        var prompts = cfg.prompts[key];
+        if (!prompts) prompts = DEFAULT_CONFIG.prompts[key];
+        var docText = withContext ? getDocumentText() : "";
+        systemPrompt = prompts.system;
+        userPrompt = prompts.user.replace(/\{question\}/g, question).replace(/\{document\}/g, docText);
+      }
 
       var runCfg = JSON.parse(JSON.stringify(cfg));
       runCfg.web_search = useWeb;
-      doQA(runCfg, withContext, question);
-    }
-  }
+      runCfg._onChunk = function (delta) { stream.append(delta); };
 
-  async function doQA(cfg, withContext, question) {
-    var key = withContext ? "qa_with_context" : "qa";
-    var prompts = cfg.prompts[key];
-    if (!prompts) {
-      prompts = DEFAULT_CONFIG.prompts[key];
-    }
-
-    var docText = withContext ? getDocumentText() : "";
-    var systemPrompt = prompts.system;
-    var userPrompt = prompts.user
-      .replace(/\{question\}/g, question)
-      .replace(/\{document\}/g, docText);
-
-    var toast = showProgressToast(L.qaAsking);
-
-    try {
-      var result = await callAPI(systemPrompt, userPrompt, cfg);
-      toast.remove();
-      if (result && result.trim()) {
-        insertQAResponse(result.trim());
-        showToast(L.qaDone, "success");
-      } else {
-        showToast(L.emptyResult, "error");
-      }
-    } catch (e) {
-      toast.remove();
-      if (e.name === "AbortError") {
-        showToast(L.qaStopped, "info");
-      } else {
-        showToast(L.qaFailed + e.message, "error");
-        console.error("[AI Edit]", e);
-      }
-    } finally {
-      currentAbort = null;
+      callAPI(systemPrompt, userPrompt, runCfg).then(function (result) {
+        currentAbort = null;
+        running = false;
+        if (result && result.trim()) {
+          if (codeCtx) {
+            var replBtn = '<button class="ai-btn primary" data-action="replace-block" style="margin-right:8px">' + escHTML(L.replaceBlock) + '</button>';
+            stream.showResult(L.confirmInsert, replBtn);
+          } else {
+            stream.showResult(L.confirmInsert);
+          }
+        } else {
+          stream.showError(L.emptyResult);
+        }
+      }).catch(function (e) {
+        currentAbort = null;
+        running = false;
+        if (e.name === "AbortError") {
+          if (codeCtx) {
+            var replBtn = '<button class="ai-btn primary" data-action="replace-block" style="margin-right:8px">' + escHTML(L.replaceBlock) + '</button>';
+            stream.showResult(L.confirmInsert, replBtn);
+          } else {
+            stream.showResult(L.confirmInsert);
+          }
+        } else {
+          stream.showError(e.message);
+          console.error("[AI Edit]", e);
+        }
+      });
     }
   }
 
@@ -1686,55 +1968,6 @@
       console.error("[AI Edit] insertQAResponse:", e);
       writeToClipboard(text);
       showToast(L.insertFail, "error");
-    }
-  }
-
-  // ===================== Optimize =====================
-
-  async function doOptimize(cfg, withContext, extraPrompt) {
-    var key = withContext ? "optimize_with_context" : "optimize";
-    var prompts = cfg.prompts[key];
-    if (!prompts) {
-      showToast(L.promptMissing, "error");
-      return;
-    }
-    if (!savedSelection || !savedSelection.text) {
-      showToast(L.selectFirst, "error");
-      return;
-    }
-
-    var selText = savedSelection.text;
-    var docText = withContext ? getDocumentText() : "";
-    var userPrompt = prompts.user
-      .replace(/\{selection\}/g, selText)
-      .replace(/\{document\}/g, docText);
-
-    if (extraPrompt) {
-      userPrompt = L.extraReq + extraPrompt + "\n\n" + userPrompt;
-    }
-
-    var toast = showProgressToast(L.optimizing);
-
-    try {
-      var result = await callAPI(prompts.system, userPrompt, cfg);
-      if (result && result.trim()) {
-        var ok = restoreAndReplace(result.trim());
-        toast.remove();
-        showToast(ok ? L.optDone : L.optReplaceFail, ok ? "success" : "error");
-      } else {
-        toast.remove();
-        showToast(L.emptyResult, "error");
-      }
-    } catch (e) {
-      toast.remove();
-      if (e.name === "AbortError") {
-        showToast(L.optStopped, "info");
-      } else {
-        showToast(L.optFailed + e.message, "error");
-        console.error("[AI Edit]", e);
-      }
-    } finally {
-      currentAbort = null;
     }
   }
 
@@ -2053,34 +2286,6 @@
     initShortcutRecorder("ai-s-sc-qa", cfg.shortcuts.qa);
   }
 
-  function initShortcutRecorder(inputId, currentSc) {
-    var el = document.getElementById(inputId);
-    if (!el) return;
-    el._shortcut = currentSc ? { ...currentSc } : null;
-    el.addEventListener("keydown", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (["Meta", "Control", "Alt", "Shift"].indexOf(e.key) >= 0) return;
-      var sc = {
-        key: e.key.toLowerCase(),
-        metaKey: e.metaKey,
-        shiftKey: e.shiftKey,
-        ctrlKey: e.ctrlKey,
-        altKey: e.altKey,
-      };
-      el._shortcut = sc;
-      el.value = shortcutDisplay(sc);
-    });
-  }
-
-  function escHTML(s) {
-    return s
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
   // ===================== Styles =====================
 
   function injectStyles() {
@@ -2240,9 +2445,25 @@
 
         var sel = getSelectedText();
         if (sel.length > 0) {
-          saveCurrentSelection();
+          saveCurrentSelection(target);
         } else {
           savedSelection = null;
+          var blockEl = findSpecialBlock(target);
+          if (blockEl) {
+            var cm = getBlockCM(blockEl);
+            if (!cm) {
+              var source = getHtmlBlockSource(blockEl);
+              if (source) {
+                savedSelection = {
+                  text: source,
+                  isBlock: true,
+                  isRendered: true,
+                  blockEl: blockEl,
+                  originalSource: source,
+                };
+              }
+            }
+          }
         }
 
         if (target.tagName === "IMG") {
@@ -2280,4 +2501,5 @@
       setTimeout(init, 500);
     });
   }
+
 })();

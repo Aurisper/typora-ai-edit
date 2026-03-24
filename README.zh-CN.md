@@ -140,10 +140,15 @@ sudo bash bin/install.sh
 
 ## 更新插件
 
-修改 `src/typora-ai-edit.js` 后：
+修改 `src/modules/` 下的模块文件后：
 
 ```bash
+# 从模块重新构建
+bash build.sh
+
+# 部署到 Typora
 sudo cp src/typora-ai-edit.js /Applications/Typora.app/Contents/Resources/TypeMark/ai-edit/typora-ai-edit.js
+
 # 重启 Typora
 ```
 
@@ -157,13 +162,28 @@ sudo bash bin/uninstall.sh
 
 ```
 ├── src/
-│   └── typora-ai-edit.js    # 插件主脚本（单文件 IIFE，无需构建）
+│   ├── modules/                # 模块化源码（编辑这些文件）
+│   │   ├── 01-i18n.js          # 语言检测 + 本地化字符串
+│   │   ├── 02-config.js        # 常量、默认配置、加载/保存
+│   │   ├── 03-platform.js      # 文件 I/O、Token、图片处理
+│   │   ├── 04-api.js           # API 调用、SSE 解析、终止
+│   │   ├── 05-model-test.js    # OpenAI 模型测试
+│   │   ├── 06-editor.js        # 选区、代码块、替换
+│   │   ├── 07-ui-core.js       # Toast、剪贴板、快捷键
+│   │   ├── 08-ui-menu.js       # 右键菜单 + 粘贴
+│   │   ├── 09-ui-dialogs.js    # 优化 + 图片对话框
+│   │   ├── 10-ui-qa.js         # AI 问答对话框
+│   │   ├── 11-ui-settings.js   # 设置面板
+│   │   ├── 12-styles.js        # CSS 注入
+│   │   └── 13-main.js          # 初始化 + 事件绑定
+│   └── typora-ai-edit.js       # 构建产物（自动生成，勿手动编辑）
+├── build.sh                    # 构建脚本：模块 → 单文件 IIFE
 ├── bin/
-│   ├── install.sh           # 安装脚本
-│   └── uninstall.sh         # 卸载脚本
+│   ├── install.sh              # 安装脚本
+│   └── uninstall.sh            # 卸载脚本
 └── doc/
-    ├── requirements.md      # 需求文档
-    └── development.md       # 开发进展与技术实现文档
+    ├── requirements.md         # 需求文档
+    └── development.md          # 开发进展与技术实现文档
 ```
 
 ## 技术要点
@@ -182,6 +202,15 @@ sudo bash bin/uninstall.sh
 | 图表渲染 | AI 生成 HTML/CSS/SVG 或 Mermaid → Typora 内联渲染 |
 
 ## 更新日志
+
+### v0.6.0 (2026-03-24)
+
+- **新增：模块化代码架构** — 将 2500 行单文件拆分为 13 个功能模块（`src/modules/`），每个模块 300 行以内：
+  - `01-i18n` / `02-config` / `03-platform` / `04-api` / `05-model-test` / `06-editor` / `07-ui-core` / `08-ui-menu` / `09-ui-dialogs` / `10-ui-qa` / `11-ui-settings` / `12-styles` / `13-main`
+- **新增：构建脚本** — `build.sh` 按编号合并模块，包裹 IIFE，输出可部署的 `src/typora-ai-edit.js`
+- **优化：代码块 AI 编辑** — AI 问答自动检测代码块（CodeMirror 和渲染的 HTML），将源码注入提示词，并提供「替换代码块」按钮
+- **优化：HTML 块替换** — 使用文件级 Markdown 替换（`fs.writeFileSync` + Typora 重载）解决渲染 HTML 块修改不生效的问题
+- **优化：流式对话框** — 所有 AI 操作（优化、图片、问答）现在在对话框中流式显示输出，提供停止/确认按钮，用户确认后再插入文档
 
 ### v0.5.1 (2026-03-24)
 

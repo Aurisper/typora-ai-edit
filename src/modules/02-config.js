@@ -1,0 +1,98 @@
+  // ===================== Config =====================
+
+  const CODEX_URL = "https://chatgpt.com/backend-api/codex/responses";
+  const CONFIG_KEY = "typora-ai-edit-config";
+
+  const DEFAULT_CONFIG = {
+    provider: "chatgpt",
+    model: "gpt-5.4",
+    web_search: false,
+    openai_compat: {
+      base_url: "",
+      api_key: "",
+      models_input: "",
+      models: [],
+    },
+    models: [
+      "gpt-5.4",
+      "gpt-5.4-mini",
+      "gpt-5.2",
+      "gpt-5.1",
+      "gpt-5",
+      "gpt-5.3-codex",
+      "gpt-5.2-codex",
+      "gpt-5.1-codex",
+      "gpt-5-codex",
+    ],
+    prompts: isChinese
+      ? {
+          optimize: {
+            system: "你是一位专业编辑，擅长文字润色与优化。",
+            user: "请优化以下文字。保持原意，提高流畅度和专业性。只返回优化后的文字，不要任何解释。\n\n{selection}",
+          },
+          optimize_with_context: {
+            system: "你是一位专业编辑，擅长结合全文语境对选中部分进行润色优化。",
+            user: "以下是完整文档：\n\n<document>\n{document}\n</document>\n\n请优化以下选中部分，确保结果与全文的风格、逻辑和术语保持一致。只返回优化后的文字，不要任何解释。\n\n<selection>\n{selection}\n</selection>",
+          },
+          describe_image: {
+            system: "你是一位专业的图像分析师，擅长详细解读和描述视觉内容。",
+            user: "请详细分析和描述以下图片。提供全面的解读，包括关键元素、背景信息以及图中可见的文字。",
+          },
+          qa: {
+            system: "你是一位知识渊博的 AI 助手，擅长回答各类问题。请用 Markdown 格式回答。",
+            user: "{question}",
+          },
+          qa_with_context: {
+            system: "你是一位知识渊博的 AI 助手。以下是用户正在编辑的完整文档，请结合文档上下文来回答用户的问题。请用 Markdown 格式回答。",
+            user: "完整文档：\n\n<document>\n{document}\n</document>\n\n用户问题：\n{question}",
+          },
+        }
+      : {
+          optimize: {
+            system: "You are a professional editor skilled at text polishing and optimization.",
+            user: "Please optimize the following text. Keep the original meaning, improve fluency and professionalism. Return only the optimized text without any explanation.\n\n{selection}",
+          },
+          optimize_with_context: {
+            system: "You are a professional editor skilled at polishing and optimizing text within the context of a full document.",
+            user: "Here is the full document:\n\n<document>\n{document}\n</document>\n\nPlease optimize the following selected portion, ensuring the result is consistent with the full document's style, logic, and terminology. Return only the optimized text without any explanation.\n\n<selection>\n{selection}\n</selection>",
+          },
+          describe_image: {
+            system: "You are a professional image analyst skilled at interpreting and describing visual content in detail.",
+            user: "Please analyze and describe the following image in detail. Provide a comprehensive interpretation including key elements, context, and any text visible in the image.",
+          },
+          qa: {
+            system: "You are a knowledgeable AI assistant skilled at answering all kinds of questions. Please respond in Markdown format.",
+            user: "{question}",
+          },
+          qa_with_context: {
+            system: "You are a knowledgeable AI assistant. Below is the full document the user is editing. Please answer the user's question with the document as context. Respond in Markdown format.",
+            user: "Full document:\n\n<document>\n{document}\n</document>\n\nUser question:\n{question}",
+          },
+        },
+    shortcuts: {
+      qa: { key: "e", metaKey: true, shiftKey: false, ctrlKey: false, altKey: false },
+    },
+  };
+
+  function loadConfig() {
+    try {
+      const saved = localStorage.getItem(CONFIG_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...DEFAULT_CONFIG,
+          ...parsed,
+          prompts: { ...DEFAULT_CONFIG.prompts, ...(parsed.prompts || {}) },
+          shortcuts: { ...DEFAULT_CONFIG.shortcuts, ...(parsed.shortcuts || {}) },
+          openai_compat: { ...DEFAULT_CONFIG.openai_compat, ...(parsed.openai_compat || {}) },
+        };
+      }
+    } catch (e) {
+      console.error("[AI Edit] loadConfig:", e);
+    }
+    return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  }
+
+  function saveConfig(cfg) {
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+  }
