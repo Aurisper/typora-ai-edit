@@ -20,13 +20,13 @@
     ],
     prompts: {
       optimize: {
-        system: "你是一位专业的中文编辑，擅长文字润色与优化。",
-        user: "请优化以下文字，保持原意不变，提升表达的流畅性和专业性。只返回优化后的文字，不要添加任何解释。\n\n{selection}",
+        system: "You are a professional editor skilled at text polishing and optimization.",
+        user: "Please optimize the following text. Keep the original meaning, improve fluency and professionalism. Return only the optimized text without any explanation.\n\n{selection}",
       },
       optimize_with_context: {
         system:
-          "你是一位专业的中文编辑，擅长在理解全文语境的基础上对局部文字进行润色与优化。",
-        user: "以下是完整文档：\n\n<document>\n{document}\n</document>\n\n请优化其中以下选中的部分，确保优化结果与全文的风格、逻辑、术语保持一致。只返回优化后的文字，不要添加任何解释。\n\n<selection>\n{selection}\n</selection>",
+          "You are a professional editor skilled at polishing and optimizing text within the context of a full document.",
+        user: "Here is the full document:\n\n<document>\n{document}\n</document>\n\nPlease optimize the following selected portion, ensuring the result is consistent with the full document's style, logic, and terminology. Return only the optimized text without any explanation.\n\n<selection>\n{selection}\n</selection>",
       },
     },
   };
@@ -101,7 +101,7 @@
   function getTokenPath() {
     var home = getHomePath();
     if (!home) {
-      console.error("[AI Edit] 无法确定用户主目录。可用信息:", {
+      console.error("[AI Edit] Cannot determine user home directory. Available info:", {
         process_env: typeof process !== "undefined" && process.env ? process.env.HOME : "N/A",
         _options: window._options ? Object.keys(window._options).join(",") : "N/A",
         bridge: !!window.bridge,
@@ -113,7 +113,7 @@
   }
 
   function readFileContent(filePath) {
-    // 方式 1: bridge (macOS)
+    // Method 1: bridge (macOS)
     if (window.bridge && window.bridge.callSync) {
       try {
         var content = window.bridge.callSync("path.readText", filePath);
@@ -122,7 +122,7 @@
         console.warn("[AI Edit] bridge.readText failed:", e);
       }
     }
-    // 方式 2: reqnode (Windows/Linux)
+    // Method 2: reqnode (Windows/Linux)
     if (window.reqnode) {
       try {
         return window.reqnode("fs").readFileSync(filePath, "utf-8");
@@ -130,7 +130,7 @@
         console.warn("[AI Edit] reqnode.fs failed:", e);
       }
     }
-    // 方式 3: Node.js require
+    // Method 3: Node.js require
     try {
       if (typeof require === "function") {
         return require("fs").readFileSync(filePath, "utf-8");
@@ -144,15 +144,15 @@
       var p = getTokenPath();
       console.log("[AI Edit] Token path:", p);
       var raw = readFileContent(p);
-      if (!raw) throw new Error("无法读取 token 文件: " + p);
+      if (!raw) throw new Error("Cannot read token file: " + p);
       var token = JSON.parse(raw);
       if (token.expires && Date.now() > token.expires) {
-        throw new Error("Token 已过期，请运行 oauth-cli-kit 重新登录");
+        throw new Error("Token expired, please run oauth-cli-kit to log in again");
       }
       return token;
     } catch (e) {
       console.error("[AI Edit] readToken:", e);
-      showToast("Token 读取失败: " + e.message, "error", 5000);
+      showToast("Token read failed: " + e.message, "error", 5000);
       return null;
     }
   }
@@ -163,7 +163,7 @@
 
   async function callCodexAPI(systemPrompt, userPrompt, config) {
     var token = readToken();
-    if (!token) throw new Error("OAuth Token 不可用");
+    if (!token) throw new Error("OAuth Token unavailable");
 
     currentAbort = new AbortController();
 
@@ -252,11 +252,11 @@
               ev.type === "response.failed"
             ) {
               throw new Error(
-                "API 错误: " + (ev.message || JSON.stringify(ev)).slice(0, 200)
+                "API error: " + (ev.message || JSON.stringify(ev)).slice(0, 200)
               );
             }
           } catch (e) {
-            if (e.message && e.message.startsWith("API 错误")) throw e;
+            if (e.message && e.message.startsWith("API error")) throw e;
           }
         }
       }
@@ -364,7 +364,7 @@
 
     var stopBtn = document.createElement("button");
     stopBtn.className = "ai-toast-stop";
-    stopBtn.textContent = "停止";
+    stopBtn.textContent = "Stop";
     stopBtn.addEventListener("click", function () {
       abortCurrentRequest();
     });
@@ -389,33 +389,33 @@
     if (hasSel) {
       html +=
         '<div class="ai-menu-item" data-action="optimize">' +
-        '<span class="ai-menu-icon">✦</span>AI 优化选中文字</div>';
+        '<span class="ai-menu-icon">✦</span>AI Optimize Selection</div>';
       html +=
         '<div class="ai-menu-item" data-action="optimize_ctx">' +
-        '<span class="ai-menu-icon">✦</span>AI 优化选中文字（参考全文）</div>';
+        '<span class="ai-menu-icon">✦</span>AI Optimize (With Context)</div>';
       html += '<div class="ai-menu-sep"></div>';
     }
 
-    // 常规编辑操作
+    // Standard edit operations
     if (hasSel) {
       html +=
         '<div class="ai-menu-item" data-action="cut">' +
-        '<span class="ai-menu-icon">✂</span>剪切' +
+        '<span class="ai-menu-icon">✂</span>Cut' +
         '<span class="ai-menu-shortcut">⌘X</span></div>';
       html +=
         '<div class="ai-menu-item" data-action="copy">' +
-        '<span class="ai-menu-icon">⧉</span>复制' +
+        '<span class="ai-menu-icon">⧉</span>Copy' +
         '<span class="ai-menu-shortcut">⌘C</span></div>';
     }
     html +=
       '<div class="ai-menu-item" data-action="paste">' +
-      '<span class="ai-menu-icon">📋</span>粘贴' +
+      '<span class="ai-menu-icon">📋</span>Paste' +
       '<span class="ai-menu-shortcut">⌘V</span></div>';
     html += '<div class="ai-menu-sep"></div>';
 
-    // AI 设置区
+    // AI settings section
     html += '<div class="ai-menu-item ai-menu-sub" data-action="model-parent">';
-    html += '<span class="ai-menu-icon">⚙</span>AI 模型';
+    html += '<span class="ai-menu-icon">⚙</span>AI Model';
     html += '<span class="ai-menu-arrow">▸</span>';
     html += '<div class="ai-menu-submenu">';
     for (var i = 0; i < cfg.models.length; i++) {
@@ -436,11 +436,11 @@
       '<div class="ai-menu-item" data-action="toggle-web">' +
       '<span class="ai-menu-icon">🌐</span>' +
       wc +
-      "AI 联网搜索</div>";
+      "AI Web Search</div>";
     html += '<div class="ai-menu-sep"></div>';
     html +=
       '<div class="ai-menu-item" data-action="settings">' +
-      '<span class="ai-menu-icon">⚙</span>AI 编辑设置…</div>';
+      '<span class="ai-menu-icon">⚙</span>AI Edit Settings…</div>';
 
     return html;
   }
@@ -513,11 +513,11 @@
     } else if (action === "set-model") {
       cfg.model = item.dataset.model;
       saveConfig(cfg);
-      showToast("模型已切换: " + cfg.model, "success");
+      showToast("Model switched to: " + cfg.model, "success");
     } else if (action === "toggle-web") {
       cfg.web_search = !cfg.web_search;
       saveConfig(cfg);
-      showToast("联网搜索已" + (cfg.web_search ? "开启" : "关闭"), "success");
+      showToast("Web search " + (cfg.web_search ? "enabled" : "disabled"), "success");
     } else if (action === "settings") {
       showSettingsPanel();
     }
@@ -547,7 +547,7 @@
           document.execCommand("insertText", false, text);
         })
         .catch(function () {
-          showToast("粘贴失败，请使用 ⌘V", "error");
+          showToast("Paste failed, please use ⌘V", "error");
         });
     }
   }
@@ -562,7 +562,7 @@
     overlay.id = "ai-edit-prompt-dialog";
     overlay.className = "ai-edit-overlay";
 
-    var title = withContext ? "AI 优化选中文字（参考全文）" : "AI 优化选中文字";
+    var title = withContext ? "AI Optimize Selection (With Context)" : "AI Optimize Selection";
 
     overlay.innerHTML =
       '<div class="ai-prompt-panel">' +
@@ -571,18 +571,18 @@
       '<button class="ai-edit-close" data-action="close">&times;</button>' +
       "</div>" +
       '<div class="ai-prompt-body">' +
-      "<label>额外优化指示（可留空，直接点开始即按默认提示词优化）</label>" +
-      '<textarea id="ai-prompt-input" rows="4" placeholder="例如：请让语气更正式 / 缩短到100字以内 / 改为英文…"></textarea>' +
+      "<label>Additional instructions (optional — leave empty to use default prompts)</label>" +
+      '<textarea id="ai-prompt-input" rows="4" placeholder="e.g. Make the tone more formal / Shorten to 100 words / Translate to English…"></textarea>' +
       '<div class="ai-prompt-options">' +
       '<label class="ai-prompt-checkbox"><input type="checkbox" id="ai-prompt-web" ' +
       (cfg.web_search ? "checked" : "") +
-      "> 联网搜索</label>" +
+      "> Web Search</label>" +
       "</div>" +
       "</div>" +
       '<div class="ai-edit-panel-footer">' +
-      '<button class="ai-btn secondary" data-action="close">取消</button>' +
+      '<button class="ai-btn secondary" data-action="close">Cancel</button>' +
       '<div class="ai-edit-spacer"></div>' +
-      '<button class="ai-btn primary" data-action="go">开始优化</button>' +
+      '<button class="ai-btn primary" data-action="go">Start</button>' +
       "</div>" +
       "</div>";
 
@@ -628,11 +628,11 @@
     var key = withContext ? "optimize_with_context" : "optimize";
     var prompts = cfg.prompts[key];
     if (!prompts) {
-      showToast("提示词配置缺失", "error");
+      showToast("Prompt configuration missing", "error");
       return;
     }
     if (!savedSelection || !savedSelection.text) {
-      showToast("请先选中文字", "error");
+      showToast("Please select text first", "error");
       return;
     }
 
@@ -643,27 +643,27 @@
       .replace(/\{document\}/g, docText);
 
     if (extraPrompt) {
-      userPrompt = "额外要求: " + extraPrompt + "\n\n" + userPrompt;
+      userPrompt = "Additional requirements: " + extraPrompt + "\n\n" + userPrompt;
     }
 
-    var toast = showProgressToast("AI 正在优化…");
+    var toast = showProgressToast("AI optimizing…");
 
     try {
       var result = await callCodexAPI(prompts.system, userPrompt, cfg);
       if (result && result.trim()) {
         var ok = restoreAndReplace(result.trim());
         toast.remove();
-        showToast(ok ? "AI 优化完成" : "替换失败，请重试", ok ? "success" : "error");
+        showToast(ok ? "AI optimization complete" : "Replace failed, please retry", ok ? "success" : "error");
       } else {
         toast.remove();
-        showToast("AI 返回结果为空", "error");
+        showToast("AI returned empty result", "error");
       }
     } catch (e) {
       toast.remove();
       if (e.name === "AbortError") {
-        showToast("已停止优化", "info");
+        showToast("Optimization stopped", "info");
       } else {
-        showToast("优化失败: " + e.message, "error");
+        showToast("Optimization failed: " + e.message, "error");
         console.error("[AI Edit]", e);
       }
     } finally {
@@ -685,11 +685,11 @@
     overlay.innerHTML =
       '<div class="ai-edit-panel">' +
       '<div class="ai-edit-panel-header">' +
-      "<h3>AI 编辑设置</h3>" +
+      "<h3>AI Edit Settings</h3>" +
       '<button class="ai-edit-close" data-action="close">&times;</button>' +
       "</div>" +
       '<div class="ai-edit-panel-body">' +
-      "<h4>功能一：AI 优化选中文字</h4>" +
+      "<h4>Feature 1: AI Optimize Selection</h4>" +
       "<label>System Prompt</label>" +
       '<textarea id="ai-s-opt-sys" rows="3">' +
       escHTML(cfg.prompts.optimize.system) +
@@ -698,8 +698,8 @@
       '<textarea id="ai-s-opt-usr" rows="5">' +
       escHTML(cfg.prompts.optimize.user) +
       "</textarea>" +
-      '<p class="ai-edit-hint">可用变量: {selection}</p>' +
-      "<h4>功能二：AI 优化选中文字（参考全文）</h4>" +
+      '<p class="ai-edit-hint">Available variables: {selection}</p>' +
+      "<h4>Feature 2: AI Optimize Selection (With Context)</h4>" +
       "<label>System Prompt</label>" +
       '<textarea id="ai-s-ctx-sys" rows="3">' +
       escHTML(cfg.prompts.optimize_with_context.system) +
@@ -708,13 +708,13 @@
       '<textarea id="ai-s-ctx-usr" rows="5">' +
       escHTML(cfg.prompts.optimize_with_context.user) +
       "</textarea>" +
-      '<p class="ai-edit-hint">可用变量: {selection}, {document}</p>' +
+      '<p class="ai-edit-hint">Available variables: {selection}, {document}</p>' +
       "</div>" +
       '<div class="ai-edit-panel-footer">' +
-      '<button class="ai-btn secondary" data-action="reset">恢复默认</button>' +
+      '<button class="ai-btn secondary" data-action="reset">Reset Defaults</button>' +
       '<div class="ai-edit-spacer"></div>' +
-      '<button class="ai-btn secondary" data-action="close">取消</button>' +
-      '<button class="ai-btn primary" data-action="save">保存</button>' +
+      '<button class="ai-btn secondary" data-action="close">Cancel</button>' +
+      '<button class="ai-btn primary" data-action="save">Save</button>' +
       "</div>" +
       "</div>";
 
@@ -740,7 +740,7 @@
           document.getElementById("ai-s-ctx-usr").value;
         saveConfig(cfg);
         overlay.remove();
-        showToast("设置已保存", "success");
+        showToast("Settings saved", "success");
       } else if (act === "reset") {
         document.getElementById("ai-s-opt-sys").value =
           DEFAULT_CONFIG.prompts.optimize.system;
@@ -750,7 +750,7 @@
           DEFAULT_CONFIG.prompts.optimize_with_context.system;
         document.getElementById("ai-s-ctx-usr").value =
           DEFAULT_CONFIG.prompts.optimize_with_context.user;
-        showToast("已恢复默认值（请点保存生效）", "info");
+        showToast("Defaults restored (click Save to apply)", "info");
       }
     });
   }
@@ -900,7 +900,7 @@
       true
     );
 
-    console.log("[AI Edit] Plugin loaded. 右键选中文字即可使用 AI 编辑功能。");
+    console.log("[AI Edit] Plugin loaded. Right-click on selected text to use AI editing features.");
   }
 
   if (document.readyState === "complete" || document.readyState === "interactive") {

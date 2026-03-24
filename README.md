@@ -1,114 +1,116 @@
 # Typora AI Edit
 
-为 macOS 上的 [Typora](https://typora.io/) Markdown 编辑器开发的轻量级 AI 编辑插件，通过 ChatGPT Plus 订阅的 AI 能力，实现选中文字的智能优化。
+[中文文档](README.zh-CN.md)
 
-## 功能
+A lightweight AI editing plugin for [Typora](https://typora.io/) on macOS. Leverages your ChatGPT Plus subscription to provide intelligent text optimization directly within the editor.
 
-- **AI 优化选中文字** — 选中文字后右键，一键润色优化
-- **AI 优化（参考全文）** — 结合全文语境，对选中部分进行风格一致的优化
-- **自定义优化指示** — 每次优化前可输入额外要求（如"缩短到100字"、"改为英文"等）
-- **模型切换** — 右键子菜单切换 GPT-5.4 / GPT-5.4-mini 等多种模型
-- **联网搜索** — 可选开启，让 AI 参考互联网信息进行优化
-- **停止生成** — 优化过程中可随时点击停止
-- **提示词自定义** — 通过设置面板可视化编辑 System / User Prompt
-- **剪切 / 复制 / 粘贴** — 保留常规编辑功能
-- **暗色主题适配** — 所有 UI 自动跟随系统暗色模式
+## Features
 
-## 前置条件
+- **AI Text Optimization** — Select text, right-click, and optimize with one click
+- **Context-Aware Optimization** — Optimize selected text with full document context for style consistency
+- **Custom Instructions** — Enter additional optimization instructions before each run (e.g., "make it more formal", "translate to English")
+- **Model Switching** — Switch between GPT-5.4 / GPT-5.4-mini and other models via right-click submenu
+- **Web Search** — Optionally enable web search for AI-assisted optimization
+- **Stop Generation** — Cancel ongoing optimization at any time
+- **Prompt Customization** — Visually edit system/user prompts through the settings panel
+- **Cut / Copy / Paste** — Standard editing operations preserved in the context menu
+- **Dark Mode** — All UI components adapt to system dark mode automatically
 
-- macOS + [Typora](https://typora.io/)（基于 Electron）
-- ChatGPT Plus 订阅账号
-- 通过 [oauth-cli-kit](https://pypi.org/project/oauth-cli-kit/) 完成 OAuth 登录（Token 持久化于本地）
+## Prerequisites
+
+- macOS + [Typora](https://typora.io/) (Electron-based)
+- ChatGPT Plus subscription
+- OAuth login via [oauth-cli-kit](https://pypi.org/project/oauth-cli-kit/) (token persisted locally)
 
 ```bash
 pip install oauth-cli-kit
-# 按照 oauth-cli-kit 文档完成 ChatGPT OAuth 登录
+# Follow oauth-cli-kit documentation to complete ChatGPT OAuth login
 ```
 
-## 安装
+## Installation
 
 ```bash
-# 关闭 Typora
+# Close Typora first
 sudo bash bin/install.sh
-# 重新打开 Typora
+# Reopen Typora
 ```
 
-安装脚本会：
-1. 将插件文件复制到 Typora 资源目录
-2. 在 Typora 的 `index.html` 中注入 `<script>` 标签
+The install script will:
+1. Copy the plugin file to Typora's resource directory
+2. Inject a `<script>` tag into Typora's `index.html`
 
-## 使用方法
+## Usage
 
-1. 在 Typora 中**选中文字**
-2. **右键**弹出 AI 编辑菜单
-3. 点击「AI 优化选中文字」或「AI 优化选中文字（参考全文）」
-4. 在弹窗中输入额外优化指示（可留空），点击「开始优化」
-5. AI 返回优化结果后自动替换选区
+1. **Select text** in Typora
+2. **Right-click** to open the AI edit context menu
+3. Click **"AI Optimize Selection"** or **"AI Optimize Selection (With Context)"**
+4. Enter optional extra instructions in the dialog, click **"Start"**
+5. The optimized result replaces the selected text automatically
 
-### 右键菜单
+### Context Menu
 
 ```
-┌──────────────────────────────────┐
-│ ✦ AI 优化选中文字                │
-│ ✦ AI 优化选中文字（参考全文）     │
-│ ─────────────────────────────── │
-│ ✂ 剪切                    ⌘X   │
-│ ⧉ 复制                    ⌘C   │
-│ 📋 粘贴                   ⌘V   │
-│ ─────────────────────────────── │
-│ ⚙ AI 模型                  ▸   │
-│ 🌐   AI 联网搜索               │
-│ ─────────────────────────────── │
-│ ⚙ AI 编辑设置…                  │
-└──────────────────────────────────┘
+┌──────────────────────────────────────┐
+│ ✦ AI Optimize Selection              │
+│ ✦ AI Optimize Selection (With Context)│
+│ ──────────────────────────────────── │
+│ ✂ Cut                          ⌘X   │
+│ ⧉ Copy                         ⌘C   │
+│ 📋 Paste                       ⌘V   │
+│ ──────────────────────────────────── │
+│ ⚙ AI Model                      ▸   │
+│ 🌐   AI Web Search                  │
+│ ──────────────────────────────────── │
+│ ⚙ AI Edit Settings…                 │
+└──────────────────────────────────────┘
 ```
 
-## 更新插件
+## Updating the Plugin
 
-修改 `src/typora-ai-edit.js` 后：
+After modifying `src/typora-ai-edit.js`:
 
 ```bash
 sudo cp src/typora-ai-edit.js /Applications/Typora.app/Contents/Resources/TypeMark/ai-edit/typora-ai-edit.js
-# 重启 Typora
+# Restart Typora
 ```
 
-## 卸载
+## Uninstall
 
 ```bash
 sudo bash bin/uninstall.sh
 ```
 
-## 项目结构
+## Project Structure
 
 ```
 ├── src/
-│   └── typora-ai-edit.js    # 插件主脚本（单文件 IIFE，无需构建）
+│   └── typora-ai-edit.js    # Main plugin script (single-file IIFE, no build step)
 ├── bin/
-│   ├── install.sh           # 安装脚本
-│   └── uninstall.sh         # 卸载脚本
+│   ├── install.sh           # Install script
+│   └── uninstall.sh         # Uninstall script
 └── doc/
-    ├── requirements.md      # 需求文档
-    └── development.md       # 开发进展与技术实现文档
+    ├── requirements.md      # Requirements document
+    └── development.md       # Development progress & technical details
 ```
 
-## 技术要点
+## Technical Overview
 
-| 模块 | 实现方式 |
-|------|---------|
-| 脚本注入 | 修改 Typora `index.html`，追加 `<script>` 标签 |
-| AI 接口 | ChatGPT Codex Responses API（SSE 流式） |
-| 认证 | 读取 `oauth-cli-kit` 本地 Token 文件 |
-| 编辑器交互 | `window.getSelection()` + `document.execCommand("insertText")` |
-| 全文获取 | `window.File.editor.getMarkdown()`（Typora 内部 API） |
-| 文件读取 | `window.bridge.callSync("path.readText")` (macOS) |
-| 配置存储 | `localStorage` |
-| 右键菜单 | 拦截 `contextmenu` 事件，自定义 HTML 浮层 |
+| Module | Implementation |
+|--------|---------------|
+| Script Injection | Modify Typora's `index.html` with an additional `<script>` tag |
+| AI API | ChatGPT Codex Responses API (SSE streaming) |
+| Authentication | Reads local `oauth-cli-kit` token file |
+| Editor Interaction | `window.getSelection()` + `document.execCommand("insertText")` |
+| Document Content | `window.File.editor.getMarkdown()` (Typora internal API) |
+| File Reading | `window.bridge.callSync("path.readText")` (macOS) |
+| Config Storage | `localStorage` |
+| Context Menu | Intercept `contextmenu` event with custom HTML overlay |
 
-## 注意事项
+## Notes
 
-- Typora 升级后可能需要重新执行 `install.sh`
-- Token 过期后需通过 `oauth-cli-kit` 重新登录
-- 按 `Option+Command+I` 可打开 Typora 开发者工具查看 `[AI Edit]` 日志
+- Typora upgrades may overwrite `index.html` — re-run `install.sh` after updating Typora
+- Re-login via `oauth-cli-kit` when token expires
+- Press `Option+Command+I` to open Typora DevTools and check `[AI Edit]` logs
 
 ## License
 

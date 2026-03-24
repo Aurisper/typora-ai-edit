@@ -18,10 +18,10 @@ INJECT_AFTER_CANDIDATES=(
   '<script src="./appsrc/main.js" aria-hidden="true" defer></script>'
 )
 
-echo "=== Typora AI Edit 插件安装 ==="
+echo "=== Typora AI Edit Plugin Installation ==="
 
 if [ ! -d "$TYPORA_APP" ]; then
-  echo "错误: 未找到 Typora.app，请确认 Typora 已安装在 /Applications"
+  echo "Error: Typora.app not found. Please verify Typora is installed in /Applications"
   exit 1
 fi
 
