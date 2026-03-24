@@ -2,7 +2,7 @@
 
 ## Project Status
 
-**Current version**: v0.1.0 (development / debugging phase)
+**Current version**: v0.2.0 (image description feature added)
 **Last updated**: 2026-03-24
 
 ## Project Structure
@@ -10,7 +10,7 @@
 ```
 TyporaEdit/
 ├── src/
-│   └── typora-ai-edit.js        ← Main plugin script (~850 lines, single-file IIFE)
+│   └── typora-ai-edit.js        ← Main plugin script (~1100 lines, single-file IIFE)
 ├── bin/
 │   ├── install.sh               ← macOS install script
 │   └── uninstall.sh             ← macOS uninstall script
@@ -34,6 +34,8 @@ TyporaEdit/
 | Prompt settings panel | ✅ Done | Edit system/user prompts in a dialog, restore defaults supported |
 | Cut / Copy | ✅ Done | `document.execCommand("cut"/"copy")` |
 | Paste | ✅ Done | Electron `clipboard.readText()` + `insertText` |
+| AI image description | ✅ Done | Right-click image → prompt dialog → API with image → result dialog (copy / insert) |
+| Image source handling | ✅ Done | Web URL, local file (base64), data URI, canvas fallback |
 | Dark theme | ✅ Done | All UI respects `prefers-color-scheme: dark` |
 | Token loading | ⚠️ To verify | Multi-path fallback; confirm what works on macOS Typora |
 | Install script | ✅ Done | One-step install: `sudo bash bin/install.sh` |
@@ -284,7 +286,43 @@ If the user leaves extra instructions empty, only the template is used.
 4. insert via document.execCommand("insertText")
 ```
 
-### 11. Styling and Dark Theme
+### 11. AI Image Description
+
+**Detection**: On `contextmenu`, check if `e.target` is an `<img>` element (or contains one). Store the reference in `savedImage`.
+
+**Image data extraction** (`getImageDataUrl()`):
+```
+1. data:image/… URI       → use directly
+2. https://… URL          → pass to API as-is (API fetches it)
+3. Local file path        → readFileAsBase64() then wrap as data URI
+4. Canvas fallback        → draw <img> to <canvas>, export toDataURL()
+```
+
+**Reading local files as base64** (`readFileAsBase64()`):
+```
+1. window.reqnode("fs").readFileSync(path).toString("base64")  — Typora reqnode
+2. require("fs").readFileSync(path).toString("base64")         — generic Node.js
+```
+
+**MIME detection** (`getMimeFromPath()`): Map file extension to MIME type (png, jpg, gif, webp, svg, bmp).
+
+**API integration**: `callCodexAPI()` accepts an optional `imageDataUrl` parameter. When provided, appends `{ type: "input_image", image_url: <url> }` to the user content array.
+
+**Result dialog** (`showImageResultDialog()`):
+- Displays the AI's description in a read-only textarea
+- **Copy** button — writes to clipboard via Electron or Web Clipboard API
+- **Insert Below Image** button — positions cursor after the image's parent block and inserts text via `execCommand("insertText")`
+- **Close** button
+
+**Insert logic** (`insertAfterImage()`):
+```javascript
+var imgBlock = savedImage.closest("[cid]") || savedImage.closest("p") || savedImage.parentNode;
+range.setStartAfter(imgBlock);
+document.execCommand("insertText", false, "\n" + text);
+```
+Falls back to copying text to clipboard if DOM insertion fails.
+
+### 12. Styling and Dark Theme
 
 All UI (menu, dialogs, toasts) is styled via injected `<style>`:
 - Light: white background + frosted glass (`backdrop-filter: blur`)

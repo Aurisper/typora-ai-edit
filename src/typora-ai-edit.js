@@ -28,6 +28,11 @@
           "You are a professional editor skilled at polishing and optimizing text within the context of a full document.",
         user: "Here is the full document:\n\n<document>\n{document}\n</document>\n\nPlease optimize the following selected portion, ensuring the result is consistent with the full document's style, logic, and terminology. Return only the optimized text without any explanation.\n\n<selection>\n{selection}\n</selection>",
       },
+      describe_image: {
+        system:
+          "You are a professional image analyst skilled at interpreting and describing visual content in detail.",
+        user: "Please analyze and describe the following image in detail. Provide a comprehensive interpretation including key elements, context, and any text visible in the image.",
+      },
     },
   };
 
@@ -139,6 +144,57 @@
     return null;
   }
 
+  // ===================== Image helpers =====================
+
+  function readFileAsBase64(filePath) {
+    if (window.reqnode) {
+      try {
+        return window.reqnode("fs").readFileSync(filePath).toString("base64");
+      } catch (_) {}
+    }
+    try {
+      if (typeof require === "function") {
+        return require("fs").readFileSync(filePath).toString("base64");
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function getMimeFromPath(p) {
+    var ext = p.split(".").pop().toLowerCase().replace(/\?.*$/, "");
+    var map = {
+      png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+      gif: "image/gif", webp: "image/webp", svg: "image/svg+xml", bmp: "image/bmp",
+    };
+    return map[ext] || "image/png";
+  }
+
+  function getImageDataUrl(imgEl) {
+    var src = imgEl.getAttribute("src") || imgEl.src || "";
+
+    if (src.startsWith("data:image/")) return src;
+
+    if (src.startsWith("http://") || src.startsWith("https://")) return src;
+
+    var filePath = src;
+    if (src.startsWith("file://")) {
+      filePath = decodeURIComponent(src.replace(/^file:\/\//, ""));
+    }
+
+    var b64 = readFileAsBase64(filePath);
+    if (b64) return "data:" + getMimeFromPath(filePath) + ";base64," + b64;
+
+    try {
+      var canvas = document.createElement("canvas");
+      canvas.width = imgEl.naturalWidth;
+      canvas.height = imgEl.naturalHeight;
+      canvas.getContext("2d").drawImage(imgEl, 0, 0);
+      return canvas.toDataURL("image/png");
+    } catch (_) {}
+
+    return null;
+  }
+
   function readToken() {
     try {
       var p = getTokenPath();
@@ -161,7 +217,7 @@
 
   var currentAbort = null;
 
-  async function callCodexAPI(systemPrompt, userPrompt, config) {
+  async function callCodexAPI(systemPrompt, userPrompt, config, imageDataUrl) {
     var token = readToken();
     if (!token) throw new Error("OAuth Token unavailable");
 
@@ -177,6 +233,11 @@
       "content-type": "application/json",
     };
 
+    var inputContent = [{ type: "input_text", text: userPrompt }];
+    if (imageDataUrl) {
+      inputContent.push({ type: "input_image", image_url: imageDataUrl });
+    }
+
     var body = {
       model: config.model,
       store: false,
@@ -185,7 +246,7 @@
       input: [
         {
           role: "user",
-          content: [{ type: "input_text", text: userPrompt }],
+          content: inputContent,
         },
       ],
       include: ["reasoning.encrypted_content"],
@@ -272,6 +333,7 @@
   // ===================== Editor helpers =====================
 
   let savedSelection = null;
+  let savedImage = null;
 
   function getSelectedText() {
     const sel = window.getSelection();
@@ -383,8 +445,15 @@
 
   let menuEl = null;
 
-  function buildMenuHTML(cfg, hasSel) {
+  function buildMenuHTML(cfg, hasSel, hasImage) {
     var html = "";
+
+    if (hasImage) {
+      html +=
+        '<div class="ai-menu-item" data-action="describe_image">' +
+        '<span class="ai-menu-icon">🖼</span>AI Describe Image</div>';
+      html += '<div class="ai-menu-sep"></div>';
+    }
 
     if (hasSel) {
       html +=
@@ -449,10 +518,11 @@
     hideMenu();
     const cfg = loadConfig();
     const hasSel = !!savedSelection && !!savedSelection.text;
+    const hasImage = !!savedImage;
 
     menuEl = document.createElement("div");
     menuEl.className = "ai-edit-menu";
-    menuEl.innerHTML = buildMenuHTML(cfg, hasSel);
+    menuEl.innerHTML = buildMenuHTML(cfg, hasSel, hasImage);
     document.body.appendChild(menuEl);
 
     const r = menuEl.getBoundingClientRect();
@@ -503,6 +573,9 @@
       return;
     } else if (action === "paste") {
       doPaste();
+      return;
+    } else if (action === "describe_image") {
+      showImagePromptDialog(cfg);
       return;
     } else if (action === "optimize") {
       showPromptDialog(cfg, false);
@@ -622,6 +695,195 @@
     }
   }
 
+  // ===================== Image Prompt Dialog =====================
+
+  function showImagePromptDialog(cfg) {
+    var existing = document.getElementById("ai-edit-prompt-dialog");
+    if (existing) existing.remove();
+
+    var overlay = document.createElement("div");
+    overlay.id = "ai-edit-prompt-dialog";
+    overlay.className = "ai-edit-overlay";
+
+    overlay.innerHTML =
+      '<div class="ai-prompt-panel">' +
+      '<div class="ai-edit-panel-header">' +
+      "<h3>AI Describe Image</h3>" +
+      '<button class="ai-edit-close" data-action="close">&times;</button>' +
+      "</div>" +
+      '<div class="ai-prompt-body">' +
+      "<label>Additional instructions (optional — leave empty for general description)</label>" +
+      '<textarea id="ai-prompt-input" rows="4" placeholder="e.g. Focus on the text in the image / Describe the chart data / Extract all visible numbers…"></textarea>' +
+      '<div class="ai-prompt-options">' +
+      '<label class="ai-prompt-checkbox"><input type="checkbox" id="ai-prompt-web" ' +
+      (cfg.web_search ? "checked" : "") +
+      "> Web Search</label>" +
+      "</div>" +
+      "</div>" +
+      '<div class="ai-edit-panel-footer">' +
+      '<button class="ai-btn secondary" data-action="close">Cancel</button>' +
+      '<div class="ai-edit-spacer"></div>' +
+      '<button class="ai-btn primary" data-action="go">Start</button>' +
+      "</div>" +
+      "</div>";
+
+    document.body.appendChild(overlay);
+
+    var inputEl = document.getElementById("ai-prompt-input");
+    setTimeout(function () { inputEl.focus(); }, 50);
+
+    inputEl.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        doGo();
+      }
+    });
+
+    overlay.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-action]");
+      if (!btn) {
+        if (e.target === overlay) overlay.remove();
+        return;
+      }
+      if (btn.dataset.action === "close") {
+        overlay.remove();
+      } else if (btn.dataset.action === "go") {
+        doGo();
+      }
+    });
+
+    function doGo() {
+      var extraPrompt = document.getElementById("ai-prompt-input").value.trim();
+      var useWeb = document.getElementById("ai-prompt-web").checked;
+      overlay.remove();
+
+      var runCfg = JSON.parse(JSON.stringify(cfg));
+      runCfg.web_search = useWeb;
+      doDescribeImage(runCfg, extraPrompt);
+    }
+  }
+
+  // ===================== Describe Image =====================
+
+  async function doDescribeImage(cfg, extraPrompt) {
+    if (!savedImage) {
+      showToast("No image detected", "error");
+      return;
+    }
+
+    var imageUrl = getImageDataUrl(savedImage);
+    if (!imageUrl) {
+      showToast("Failed to read image data", "error");
+      return;
+    }
+
+    var prompts = cfg.prompts.describe_image || DEFAULT_CONFIG.prompts.describe_image;
+    var userPrompt = prompts.user;
+    if (extraPrompt) {
+      userPrompt = "Additional requirements: " + extraPrompt + "\n\n" + userPrompt;
+    }
+
+    var toast = showProgressToast("AI analyzing image\u2026");
+
+    try {
+      var result = await callCodexAPI(prompts.system, userPrompt, cfg, imageUrl);
+      toast.remove();
+      if (result && result.trim()) {
+        showImageResultDialog(result.trim());
+      } else {
+        showToast("AI returned empty result", "error");
+      }
+    } catch (e) {
+      toast.remove();
+      if (e.name === "AbortError") {
+        showToast("Analysis stopped", "info");
+      } else {
+        showToast("Analysis failed: " + e.message, "error");
+        console.error("[AI Edit]", e);
+      }
+    } finally {
+      currentAbort = null;
+    }
+  }
+
+  // ===================== Image Result Dialog =====================
+
+  function showImageResultDialog(text) {
+    var existing = document.getElementById("ai-edit-result-dialog");
+    if (existing) existing.remove();
+
+    var overlay = document.createElement("div");
+    overlay.id = "ai-edit-result-dialog";
+    overlay.className = "ai-edit-overlay";
+
+    overlay.innerHTML =
+      '<div class="ai-prompt-panel ai-result-panel">' +
+      '<div class="ai-edit-panel-header">' +
+      "<h3>AI Image Analysis</h3>" +
+      '<button class="ai-edit-close" data-action="close">&times;</button>' +
+      "</div>" +
+      '<div class="ai-prompt-body">' +
+      '<textarea id="ai-result-text" rows="12">' + escHTML(text) + "</textarea>" +
+      "</div>" +
+      '<div class="ai-edit-panel-footer">' +
+      '<button class="ai-btn secondary" data-action="copy">Copy</button>' +
+      '<div class="ai-edit-spacer"></div>' +
+      '<button class="ai-btn secondary" data-action="close">Close</button>' +
+      '<button class="ai-btn primary" data-action="insert">Insert Below Image</button>' +
+      "</div>" +
+      "</div>";
+
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-action]");
+      if (!btn) {
+        if (e.target === overlay) overlay.remove();
+        return;
+      }
+      var act = btn.dataset.action;
+      if (act === "close") {
+        overlay.remove();
+      } else if (act === "copy") {
+        var resultText = document.getElementById("ai-result-text").value;
+        writeToClipboard(resultText);
+        showToast("Copied to clipboard", "success");
+      } else if (act === "insert") {
+        var resultText = document.getElementById("ai-result-text").value;
+        insertAfterImage(resultText);
+        overlay.remove();
+      }
+    });
+  }
+
+  function writeToClipboard(text) {
+    try {
+      var cb = (window.reqnode || require)("electron").clipboard;
+      cb.writeText(text);
+      return;
+    } catch (_) {}
+    try { navigator.clipboard.writeText(text); } catch (_) {}
+  }
+
+  function insertAfterImage(text) {
+    if (!savedImage) return;
+    try {
+      var imgBlock = savedImage.closest("[cid]") || savedImage.closest("p") || savedImage.parentNode;
+      var range = document.createRange();
+      range.setStartAfter(imgBlock);
+      range.collapse(true);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.execCommand("insertText", false, "\n" + text);
+      showToast("Inserted below image", "success");
+    } catch (e) {
+      console.error("[AI Edit] insertAfterImage:", e);
+      writeToClipboard(text);
+      showToast("Insert failed — text copied to clipboard", "error");
+    }
+  }
+
   // ===================== Optimize =====================
 
   async function doOptimize(cfg, withContext, extraPrompt) {
@@ -709,6 +971,15 @@
       escHTML(cfg.prompts.optimize_with_context.user) +
       "</textarea>" +
       '<p class="ai-edit-hint">Available variables: {selection}, {document}</p>' +
+      "<h4>Feature 3: AI Describe Image</h4>" +
+      "<label>System Prompt</label>" +
+      '<textarea id="ai-s-img-sys" rows="3">' +
+      escHTML(cfg.prompts.describe_image.system) +
+      "</textarea>" +
+      "<label>User Prompt</label>" +
+      '<textarea id="ai-s-img-usr" rows="3">' +
+      escHTML(cfg.prompts.describe_image.user) +
+      "</textarea>" +
       "</div>" +
       '<div class="ai-edit-panel-footer">' +
       '<button class="ai-btn secondary" data-action="reset">Reset Defaults</button>' +
@@ -738,6 +1009,10 @@
           document.getElementById("ai-s-ctx-sys").value;
         cfg.prompts.optimize_with_context.user =
           document.getElementById("ai-s-ctx-usr").value;
+        cfg.prompts.describe_image.system =
+          document.getElementById("ai-s-img-sys").value;
+        cfg.prompts.describe_image.user =
+          document.getElementById("ai-s-img-usr").value;
         saveConfig(cfg);
         overlay.remove();
         showToast("Settings saved", "success");
@@ -750,6 +1025,10 @@
           DEFAULT_CONFIG.prompts.optimize_with_context.system;
         document.getElementById("ai-s-ctx-usr").value =
           DEFAULT_CONFIG.prompts.optimize_with_context.user;
+        document.getElementById("ai-s-img-sys").value =
+          DEFAULT_CONFIG.prompts.describe_image.system;
+        document.getElementById("ai-s-img-usr").value =
+          DEFAULT_CONFIG.prompts.describe_image.user;
         showToast("Defaults restored (click Save to apply)", "info");
       }
     });
@@ -853,6 +1132,10 @@
       ".ai-prompt-checkbox{display:flex;align-items:center;font-size:13px;color:#555;cursor:pointer;gap:6px}",
       ".ai-prompt-checkbox input{margin:0;cursor:pointer}",
 
+      /* Result dialog */
+      ".ai-result-panel{width:560px}",
+      ".ai-result-panel textarea{min-height:200px}",
+
       /* Dark settings */
       "@media(prefers-color-scheme:dark){",
       ".ai-edit-panel{background:#2a2a2a;color:#ddd}",
@@ -895,6 +1178,15 @@
         } else {
           savedSelection = null;
         }
+
+        if (target.tagName === "IMG") {
+          savedImage = target;
+        } else if (target.querySelector) {
+          savedImage = target.querySelector("img");
+        } else {
+          savedImage = null;
+        }
+
         showMenu(e.clientX, e.clientY);
       },
       true
