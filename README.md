@@ -121,6 +121,11 @@ sudo bash bin/uninstall.sh
 
 ## Changelog
 
+### v0.3.0 (2026-03-24)
+
+- **New: Auto language detection** — Automatically detects system language; shows Chinese UI (menus, dialogs, toasts, default prompts) on Chinese systems, English on all others
+- Default prompts are also language-aware (Chinese prompts for Chinese users, English for others)
+
 ### v0.2.0 (2026-03-24)
 
 - **New: AI Image Description** — Right-click any image (local file, web URL, or embedded) to get AI-powered analysis

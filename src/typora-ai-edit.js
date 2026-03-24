@@ -4,6 +4,134 @@
   const CODEX_URL = "https://chatgpt.com/backend-api/codex/responses";
   const CONFIG_KEY = "typora-ai-edit-config";
 
+  // ===================== i18n =====================
+
+  var isChinese = /^zh/i.test(
+    (navigator.language || (navigator.languages && navigator.languages[0]) || "en")
+  );
+
+  var L = isChinese
+    ? {
+        describeImage: "AI 图片解读",
+        optimizeSelection: "AI 优化选中文字",
+        optimizeWithContext: "AI 优化选中文字（参考全文）",
+        cut: "剪切", copy: "复制", paste: "粘贴",
+        aiModel: "AI 模型",
+        aiWebSearch: "AI 联网搜索",
+        aiEditSettings: "AI 编辑设置\u2026",
+        modelSwitched: "模型已切换: ",
+        webSearchOn: "联网搜索已开启",
+        webSearchOff: "联网搜索已关闭",
+        pasteFailed: "粘贴失败，请使用 \u2318V",
+        tokenFailed: "Token 读取失败: ",
+        oauthUnavailable: "OAuth Token 不可用",
+        optimizeTitle: "AI 优化选中文字",
+        optimizeCtxTitle: "AI 优化选中文字（参考全文）",
+        extraLabel: "额外优化指示（可留空，直接点开始即按默认提示词优化）",
+        extraPlaceholder: "例如：请让语气更正式 / 缩短到100字以内 / 改为英文\u2026",
+        webSearch: "联网搜索",
+        cancel: "取消",
+        start: "开始",
+        imgTitle: "AI 图片解读",
+        imgLabel: "额外指示（可留空，直接点开始即按默认方式解读）",
+        imgPlaceholder: "例如：关注图中文字 / 描述图表数据 / 提取所有数字\u2026",
+        imgResultTitle: "AI 图片分析结果",
+        copyBtn: "复制",
+        closeBtn: "关闭",
+        insertBtn: "插入到图片下方",
+        settingsTitle: "AI 编辑设置",
+        feat1: "功能一：AI 优化选中文字",
+        feat2: "功能二：AI 优化选中文字（参考全文）",
+        feat3: "功能三：AI 图片解读",
+        sysPrompt: "系统提示词",
+        usrPrompt: "用户提示词",
+        varsSelection: "可用变量: {selection}",
+        varsSelDoc: "可用变量: {selection}, {document}",
+        resetDefaults: "恢复默认",
+        save: "保存",
+        saved: "设置已保存",
+        restored: "已恢复默认值（请点保存生效）",
+        promptMissing: "提示词配置缺失",
+        selectFirst: "请先选中文字",
+        extraReq: "额外要求: ",
+        optimizing: "AI 正在优化\u2026",
+        optDone: "AI 优化完成",
+        optReplaceFail: "替换失败，请重试",
+        emptyResult: "AI 返回结果为空",
+        optStopped: "已停止优化",
+        optFailed: "优化失败: ",
+        noImage: "未检测到图片",
+        imgReadFail: "图片数据读取失败",
+        analyzing: "AI 正在分析图片\u2026",
+        anaStopped: "分析已停止",
+        anaFailed: "分析失败: ",
+        copied: "已复制到剪贴板",
+        inserted: "已插入到图片下方",
+        insertFail: "插入失败，已复制到剪贴板",
+        stop: "停止",
+        loaded: "插件已加载。右键选中文字即可使用 AI 编辑功能。",
+      }
+    : {
+        describeImage: "AI Describe Image",
+        optimizeSelection: "AI Optimize Selection",
+        optimizeWithContext: "AI Optimize (With Context)",
+        cut: "Cut", copy: "Copy", paste: "Paste",
+        aiModel: "AI Model",
+        aiWebSearch: "AI Web Search",
+        aiEditSettings: "AI Edit Settings\u2026",
+        modelSwitched: "Model switched to: ",
+        webSearchOn: "Web search enabled",
+        webSearchOff: "Web search disabled",
+        pasteFailed: "Paste failed, please use \u2318V",
+        tokenFailed: "Token read failed: ",
+        oauthUnavailable: "OAuth Token unavailable",
+        optimizeTitle: "AI Optimize Selection",
+        optimizeCtxTitle: "AI Optimize Selection (With Context)",
+        extraLabel: "Additional instructions (optional \u2014 leave empty to use default prompts)",
+        extraPlaceholder: "e.g. Make the tone more formal / Shorten to 100 words / Translate to English\u2026",
+        webSearch: "Web Search",
+        cancel: "Cancel",
+        start: "Start",
+        imgTitle: "AI Describe Image",
+        imgLabel: "Additional instructions (optional \u2014 leave empty for general description)",
+        imgPlaceholder: "e.g. Focus on the text in the image / Describe the chart data / Extract all visible numbers\u2026",
+        imgResultTitle: "AI Image Analysis",
+        copyBtn: "Copy",
+        closeBtn: "Close",
+        insertBtn: "Insert Below Image",
+        settingsTitle: "AI Edit Settings",
+        feat1: "Feature 1: AI Optimize Selection",
+        feat2: "Feature 2: AI Optimize Selection (With Context)",
+        feat3: "Feature 3: AI Describe Image",
+        sysPrompt: "System Prompt",
+        usrPrompt: "User Prompt",
+        varsSelection: "Available variables: {selection}",
+        varsSelDoc: "Available variables: {selection}, {document}",
+        resetDefaults: "Reset Defaults",
+        save: "Save",
+        saved: "Settings saved",
+        restored: "Defaults restored (click Save to apply)",
+        promptMissing: "Prompt configuration missing",
+        selectFirst: "Please select text first",
+        extraReq: "Additional requirements: ",
+        optimizing: "AI optimizing\u2026",
+        optDone: "AI optimization complete",
+        optReplaceFail: "Replace failed, please retry",
+        emptyResult: "AI returned empty result",
+        optStopped: "Optimization stopped",
+        optFailed: "Optimization failed: ",
+        noImage: "No image detected",
+        imgReadFail: "Failed to read image data",
+        analyzing: "AI analyzing image\u2026",
+        anaStopped: "Analysis stopped",
+        anaFailed: "Analysis failed: ",
+        copied: "Copied to clipboard",
+        inserted: "Inserted below image",
+        insertFail: "Insert failed \u2014 text copied to clipboard",
+        stop: "Stop",
+        loaded: "Plugin loaded. Right-click on selected text to use AI editing features.",
+      };
+
   const DEFAULT_CONFIG = {
     model: "gpt-5.4",
     web_search: false,
@@ -18,22 +146,35 @@
       "gpt-5.1-codex",
       "gpt-5-codex",
     ],
-    prompts: {
-      optimize: {
-        system: "You are a professional editor skilled at text polishing and optimization.",
-        user: "Please optimize the following text. Keep the original meaning, improve fluency and professionalism. Return only the optimized text without any explanation.\n\n{selection}",
-      },
-      optimize_with_context: {
-        system:
-          "You are a professional editor skilled at polishing and optimizing text within the context of a full document.",
-        user: "Here is the full document:\n\n<document>\n{document}\n</document>\n\nPlease optimize the following selected portion, ensuring the result is consistent with the full document's style, logic, and terminology. Return only the optimized text without any explanation.\n\n<selection>\n{selection}\n</selection>",
-      },
-      describe_image: {
-        system:
-          "You are a professional image analyst skilled at interpreting and describing visual content in detail.",
-        user: "Please analyze and describe the following image in detail. Provide a comprehensive interpretation including key elements, context, and any text visible in the image.",
-      },
-    },
+    prompts: isChinese
+      ? {
+          optimize: {
+            system: "你是一位专业编辑，擅长文字润色与优化。",
+            user: "请优化以下文字。保持原意，提高流畅度和专业性。只返回优化后的文字，不要任何解释。\n\n{selection}",
+          },
+          optimize_with_context: {
+            system: "你是一位专业编辑，擅长结合全文语境对选中部分进行润色优化。",
+            user: "以下是完整文档：\n\n<document>\n{document}\n</document>\n\n请优化以下选中部分，确保结果与全文的风格、逻辑和术语保持一致。只返回优化后的文字，不要任何解释。\n\n<selection>\n{selection}\n</selection>",
+          },
+          describe_image: {
+            system: "你是一位专业的图像分析师，擅长详细解读和描述视觉内容。",
+            user: "请详细分析和描述以下图片。提供全面的解读，包括关键元素、背景信息以及图中可见的文字。",
+          },
+        }
+      : {
+          optimize: {
+            system: "You are a professional editor skilled at text polishing and optimization.",
+            user: "Please optimize the following text. Keep the original meaning, improve fluency and professionalism. Return only the optimized text without any explanation.\n\n{selection}",
+          },
+          optimize_with_context: {
+            system: "You are a professional editor skilled at polishing and optimizing text within the context of a full document.",
+            user: "Here is the full document:\n\n<document>\n{document}\n</document>\n\nPlease optimize the following selected portion, ensuring the result is consistent with the full document's style, logic, and terminology. Return only the optimized text without any explanation.\n\n<selection>\n{selection}\n</selection>",
+          },
+          describe_image: {
+            system: "You are a professional image analyst skilled at interpreting and describing visual content in detail.",
+            user: "Please analyze and describe the following image in detail. Provide a comprehensive interpretation including key elements, context, and any text visible in the image.",
+          },
+        },
   };
 
   // ===================== Config =====================
@@ -267,7 +408,7 @@
       return token;
     } catch (e) {
       console.error("[AI Edit] readToken:", e);
-      showToast("Token read failed: " + e.message, "error", 5000);
+      showToast(L.tokenFailed + e.message, "error", 5000);
       return null;
     }
   }
@@ -278,7 +419,7 @@
 
   async function callCodexAPI(systemPrompt, userPrompt, config, imageDataUrl) {
     var token = readToken();
-    if (!token) throw new Error("OAuth Token unavailable");
+    if (!token) throw new Error(L.oauthUnavailable);
 
     currentAbort = new AbortController();
 
@@ -485,7 +626,7 @@
 
     var stopBtn = document.createElement("button");
     stopBtn.className = "ai-toast-stop";
-    stopBtn.textContent = "Stop";
+    stopBtn.textContent = L.stop;
     stopBtn.addEventListener("click", function () {
       abortCurrentRequest();
     });
@@ -510,17 +651,17 @@
     if (hasImage) {
       html +=
         '<div class="ai-menu-item" data-action="describe_image">' +
-        '<span class="ai-menu-icon">🖼</span>AI Describe Image</div>';
+        '<span class="ai-menu-icon">🖼</span>' + escHTML(L.describeImage) + '</div>';
       html += '<div class="ai-menu-sep"></div>';
     }
 
     if (hasSel) {
       html +=
         '<div class="ai-menu-item" data-action="optimize">' +
-        '<span class="ai-menu-icon">✦</span>AI Optimize Selection</div>';
+        '<span class="ai-menu-icon">✦</span>' + escHTML(L.optimizeSelection) + '</div>';
       html +=
         '<div class="ai-menu-item" data-action="optimize_ctx">' +
-        '<span class="ai-menu-icon">✦</span>AI Optimize (With Context)</div>';
+        '<span class="ai-menu-icon">✦</span>' + escHTML(L.optimizeWithContext) + '</div>';
       html += '<div class="ai-menu-sep"></div>';
     }
 
@@ -528,22 +669,22 @@
     if (hasSel) {
       html +=
         '<div class="ai-menu-item" data-action="cut">' +
-        '<span class="ai-menu-icon">✂</span>Cut' +
+        '<span class="ai-menu-icon">✂</span>' + escHTML(L.cut) +
         '<span class="ai-menu-shortcut">⌘X</span></div>';
       html +=
         '<div class="ai-menu-item" data-action="copy">' +
-        '<span class="ai-menu-icon">⧉</span>Copy' +
+        '<span class="ai-menu-icon">⧉</span>' + escHTML(L.copy) +
         '<span class="ai-menu-shortcut">⌘C</span></div>';
     }
     html +=
       '<div class="ai-menu-item" data-action="paste">' +
-      '<span class="ai-menu-icon">📋</span>Paste' +
+      '<span class="ai-menu-icon">📋</span>' + escHTML(L.paste) +
       '<span class="ai-menu-shortcut">⌘V</span></div>';
     html += '<div class="ai-menu-sep"></div>';
 
     // AI settings section
     html += '<div class="ai-menu-item ai-menu-sub" data-action="model-parent">';
-    html += '<span class="ai-menu-icon">⚙</span>AI Model';
+    html += '<span class="ai-menu-icon">⚙</span>' + escHTML(L.aiModel);
     html += '<span class="ai-menu-arrow">▸</span>';
     html += '<div class="ai-menu-submenu">';
     for (var i = 0; i < cfg.models.length; i++) {
@@ -564,11 +705,11 @@
       '<div class="ai-menu-item" data-action="toggle-web">' +
       '<span class="ai-menu-icon">🌐</span>' +
       wc +
-      "AI Web Search</div>";
+      escHTML(L.aiWebSearch) + "</div>";
     html += '<div class="ai-menu-sep"></div>';
     html +=
       '<div class="ai-menu-item" data-action="settings">' +
-      '<span class="ai-menu-icon">⚙</span>AI Edit Settings…</div>';
+      '<span class="ai-menu-icon">⚙</span>' + escHTML(L.aiEditSettings) + '</div>';
 
     return html;
   }
@@ -645,11 +786,11 @@
     } else if (action === "set-model") {
       cfg.model = item.dataset.model;
       saveConfig(cfg);
-      showToast("Model switched to: " + cfg.model, "success");
+      showToast(L.modelSwitched + cfg.model, "success");
     } else if (action === "toggle-web") {
       cfg.web_search = !cfg.web_search;
       saveConfig(cfg);
-      showToast("Web search " + (cfg.web_search ? "enabled" : "disabled"), "success");
+      showToast(cfg.web_search ? L.webSearchOn : L.webSearchOff, "success");
     } else if (action === "settings") {
       showSettingsPanel();
     }
@@ -679,7 +820,7 @@
           document.execCommand("insertText", false, text);
         })
         .catch(function () {
-          showToast("Paste failed, please use ⌘V", "error");
+          showToast(L.pasteFailed, "error");
         });
     }
   }
@@ -694,7 +835,7 @@
     overlay.id = "ai-edit-prompt-dialog";
     overlay.className = "ai-edit-overlay";
 
-    var title = withContext ? "AI Optimize Selection (With Context)" : "AI Optimize Selection";
+    var title = withContext ? L.optimizeCtxTitle : L.optimizeTitle;
 
     overlay.innerHTML =
       '<div class="ai-prompt-panel">' +
@@ -703,18 +844,18 @@
       '<button class="ai-edit-close" data-action="close">&times;</button>' +
       "</div>" +
       '<div class="ai-prompt-body">' +
-      "<label>Additional instructions (optional — leave empty to use default prompts)</label>" +
-      '<textarea id="ai-prompt-input" rows="4" placeholder="e.g. Make the tone more formal / Shorten to 100 words / Translate to English…"></textarea>' +
+      "<label>" + escHTML(L.extraLabel) + "</label>" +
+      '<textarea id="ai-prompt-input" rows="4" placeholder="' + escHTML(L.extraPlaceholder) + '"></textarea>' +
       '<div class="ai-prompt-options">' +
       '<label class="ai-prompt-checkbox"><input type="checkbox" id="ai-prompt-web" ' +
       (cfg.web_search ? "checked" : "") +
-      "> Web Search</label>" +
+      "> " + escHTML(L.webSearch) + "</label>" +
       "</div>" +
       "</div>" +
       '<div class="ai-edit-panel-footer">' +
-      '<button class="ai-btn secondary" data-action="close">Cancel</button>' +
+      '<button class="ai-btn secondary" data-action="close">' + escHTML(L.cancel) + '</button>' +
       '<div class="ai-edit-spacer"></div>' +
-      '<button class="ai-btn primary" data-action="go">Start</button>' +
+      '<button class="ai-btn primary" data-action="go">' + escHTML(L.start) + '</button>' +
       "</div>" +
       "</div>";
 
@@ -767,22 +908,22 @@
     overlay.innerHTML =
       '<div class="ai-prompt-panel">' +
       '<div class="ai-edit-panel-header">' +
-      "<h3>AI Describe Image</h3>" +
+      "<h3>" + escHTML(L.imgTitle) + "</h3>" +
       '<button class="ai-edit-close" data-action="close">&times;</button>' +
       "</div>" +
       '<div class="ai-prompt-body">' +
-      "<label>Additional instructions (optional — leave empty for general description)</label>" +
-      '<textarea id="ai-prompt-input" rows="4" placeholder="e.g. Focus on the text in the image / Describe the chart data / Extract all visible numbers…"></textarea>' +
+      "<label>" + escHTML(L.imgLabel) + "</label>" +
+      '<textarea id="ai-prompt-input" rows="4" placeholder="' + escHTML(L.imgPlaceholder) + '"></textarea>' +
       '<div class="ai-prompt-options">' +
       '<label class="ai-prompt-checkbox"><input type="checkbox" id="ai-prompt-web" ' +
       (cfg.web_search ? "checked" : "") +
-      "> Web Search</label>" +
+      "> " + escHTML(L.webSearch) + "</label>" +
       "</div>" +
       "</div>" +
       '<div class="ai-edit-panel-footer">' +
-      '<button class="ai-btn secondary" data-action="close">Cancel</button>' +
+      '<button class="ai-btn secondary" data-action="close">' + escHTML(L.cancel) + '</button>' +
       '<div class="ai-edit-spacer"></div>' +
-      '<button class="ai-btn primary" data-action="go">Start</button>' +
+      '<button class="ai-btn primary" data-action="go">' + escHTML(L.start) + '</button>' +
       "</div>" +
       "</div>";
 
@@ -826,23 +967,23 @@
 
   async function doDescribeImage(cfg, extraPrompt) {
     if (!savedImage) {
-      showToast("No image detected", "error");
+      showToast(L.noImage, "error");
       return;
     }
 
     var imageUrl = await getImageDataUrl(savedImage);
     if (!imageUrl) {
-      showToast("Failed to read image data", "error");
+      showToast(L.imgReadFail, "error");
       return;
     }
 
     var prompts = cfg.prompts.describe_image || DEFAULT_CONFIG.prompts.describe_image;
     var userPrompt = prompts.user;
     if (extraPrompt) {
-      userPrompt = "Additional requirements: " + extraPrompt + "\n\n" + userPrompt;
+      userPrompt = L.extraReq + extraPrompt + "\n\n" + userPrompt;
     }
 
-    var toast = showProgressToast("AI analyzing image\u2026");
+    var toast = showProgressToast(L.analyzing);
 
     try {
       var result = await callCodexAPI(prompts.system, userPrompt, cfg, imageUrl);
@@ -850,14 +991,14 @@
       if (result && result.trim()) {
         showImageResultDialog(result.trim());
       } else {
-        showToast("AI returned empty result", "error");
+        showToast(L.emptyResult, "error");
       }
     } catch (e) {
       toast.remove();
       if (e.name === "AbortError") {
-        showToast("Analysis stopped", "info");
+        showToast(L.anaStopped, "info");
       } else {
-        showToast("Analysis failed: " + e.message, "error");
+        showToast(L.anaFailed + e.message, "error");
         console.error("[AI Edit]", e);
       }
     } finally {
@@ -878,17 +1019,17 @@
     overlay.innerHTML =
       '<div class="ai-prompt-panel ai-result-panel">' +
       '<div class="ai-edit-panel-header">' +
-      "<h3>AI Image Analysis</h3>" +
+      "<h3>" + escHTML(L.imgResultTitle) + "</h3>" +
       '<button class="ai-edit-close" data-action="close">&times;</button>' +
       "</div>" +
       '<div class="ai-prompt-body">' +
       '<textarea id="ai-result-text" rows="12">' + escHTML(text) + "</textarea>" +
       "</div>" +
       '<div class="ai-edit-panel-footer">' +
-      '<button class="ai-btn secondary" data-action="copy">Copy</button>' +
+      '<button class="ai-btn secondary" data-action="copy">' + escHTML(L.copyBtn) + '</button>' +
       '<div class="ai-edit-spacer"></div>' +
-      '<button class="ai-btn secondary" data-action="close">Close</button>' +
-      '<button class="ai-btn primary" data-action="insert">Insert Below Image</button>' +
+      '<button class="ai-btn secondary" data-action="close">' + escHTML(L.closeBtn) + '</button>' +
+      '<button class="ai-btn primary" data-action="insert">' + escHTML(L.insertBtn) + '</button>' +
       "</div>" +
       "</div>";
 
@@ -906,7 +1047,7 @@
       } else if (act === "copy") {
         var resultText = document.getElementById("ai-result-text").value;
         writeToClipboard(resultText);
-        showToast("Copied to clipboard", "success");
+        showToast(L.copied, "success");
       } else if (act === "insert") {
         var resultText = document.getElementById("ai-result-text").value;
         insertAfterImage(resultText);
@@ -935,11 +1076,11 @@
       sel.removeAllRanges();
       sel.addRange(range);
       document.execCommand("insertText", false, "\n" + text);
-      showToast("Inserted below image", "success");
+      showToast(L.inserted, "success");
     } catch (e) {
       console.error("[AI Edit] insertAfterImage:", e);
       writeToClipboard(text);
-      showToast("Insert failed — text copied to clipboard", "error");
+      showToast(L.insertFail, "error");
     }
   }
 
@@ -949,11 +1090,11 @@
     var key = withContext ? "optimize_with_context" : "optimize";
     var prompts = cfg.prompts[key];
     if (!prompts) {
-      showToast("Prompt configuration missing", "error");
+      showToast(L.promptMissing, "error");
       return;
     }
     if (!savedSelection || !savedSelection.text) {
-      showToast("Please select text first", "error");
+      showToast(L.selectFirst, "error");
       return;
     }
 
@@ -964,27 +1105,27 @@
       .replace(/\{document\}/g, docText);
 
     if (extraPrompt) {
-      userPrompt = "Additional requirements: " + extraPrompt + "\n\n" + userPrompt;
+      userPrompt = L.extraReq + extraPrompt + "\n\n" + userPrompt;
     }
 
-    var toast = showProgressToast("AI optimizing…");
+    var toast = showProgressToast(L.optimizing);
 
     try {
       var result = await callCodexAPI(prompts.system, userPrompt, cfg);
       if (result && result.trim()) {
         var ok = restoreAndReplace(result.trim());
         toast.remove();
-        showToast(ok ? "AI optimization complete" : "Replace failed, please retry", ok ? "success" : "error");
+        showToast(ok ? L.optDone : L.optReplaceFail, ok ? "success" : "error");
       } else {
         toast.remove();
-        showToast("AI returned empty result", "error");
+        showToast(L.emptyResult, "error");
       }
     } catch (e) {
       toast.remove();
       if (e.name === "AbortError") {
-        showToast("Optimization stopped", "info");
+        showToast(L.optStopped, "info");
       } else {
-        showToast("Optimization failed: " + e.message, "error");
+        showToast(L.optFailed + e.message, "error");
         console.error("[AI Edit]", e);
       }
     } finally {
@@ -1006,45 +1147,45 @@
     overlay.innerHTML =
       '<div class="ai-edit-panel">' +
       '<div class="ai-edit-panel-header">' +
-      "<h3>AI Edit Settings</h3>" +
+      "<h3>" + escHTML(L.settingsTitle) + "</h3>" +
       '<button class="ai-edit-close" data-action="close">&times;</button>' +
       "</div>" +
       '<div class="ai-edit-panel-body">' +
-      "<h4>Feature 1: AI Optimize Selection</h4>" +
-      "<label>System Prompt</label>" +
+      "<h4>" + escHTML(L.feat1) + "</h4>" +
+      "<label>" + escHTML(L.sysPrompt) + "</label>" +
       '<textarea id="ai-s-opt-sys" rows="3">' +
       escHTML(cfg.prompts.optimize.system) +
       "</textarea>" +
-      "<label>User Prompt</label>" +
+      "<label>" + escHTML(L.usrPrompt) + "</label>" +
       '<textarea id="ai-s-opt-usr" rows="5">' +
       escHTML(cfg.prompts.optimize.user) +
       "</textarea>" +
-      '<p class="ai-edit-hint">Available variables: {selection}</p>' +
-      "<h4>Feature 2: AI Optimize Selection (With Context)</h4>" +
-      "<label>System Prompt</label>" +
+      '<p class="ai-edit-hint">' + escHTML(L.varsSelection) + '</p>' +
+      "<h4>" + escHTML(L.feat2) + "</h4>" +
+      "<label>" + escHTML(L.sysPrompt) + "</label>" +
       '<textarea id="ai-s-ctx-sys" rows="3">' +
       escHTML(cfg.prompts.optimize_with_context.system) +
       "</textarea>" +
-      "<label>User Prompt</label>" +
+      "<label>" + escHTML(L.usrPrompt) + "</label>" +
       '<textarea id="ai-s-ctx-usr" rows="5">' +
       escHTML(cfg.prompts.optimize_with_context.user) +
       "</textarea>" +
-      '<p class="ai-edit-hint">Available variables: {selection}, {document}</p>' +
-      "<h4>Feature 3: AI Describe Image</h4>" +
-      "<label>System Prompt</label>" +
+      '<p class="ai-edit-hint">' + escHTML(L.varsSelDoc) + '</p>' +
+      "<h4>" + escHTML(L.feat3) + "</h4>" +
+      "<label>" + escHTML(L.sysPrompt) + "</label>" +
       '<textarea id="ai-s-img-sys" rows="3">' +
       escHTML(cfg.prompts.describe_image.system) +
       "</textarea>" +
-      "<label>User Prompt</label>" +
+      "<label>" + escHTML(L.usrPrompt) + "</label>" +
       '<textarea id="ai-s-img-usr" rows="3">' +
       escHTML(cfg.prompts.describe_image.user) +
       "</textarea>" +
       "</div>" +
       '<div class="ai-edit-panel-footer">' +
-      '<button class="ai-btn secondary" data-action="reset">Reset Defaults</button>' +
+      '<button class="ai-btn secondary" data-action="reset">' + escHTML(L.resetDefaults) + '</button>' +
       '<div class="ai-edit-spacer"></div>' +
-      '<button class="ai-btn secondary" data-action="close">Cancel</button>' +
-      '<button class="ai-btn primary" data-action="save">Save</button>' +
+      '<button class="ai-btn secondary" data-action="close">' + escHTML(L.cancel) + '</button>' +
+      '<button class="ai-btn primary" data-action="save">' + escHTML(L.save) + '</button>' +
       "</div>" +
       "</div>";
 
@@ -1074,7 +1215,7 @@
           document.getElementById("ai-s-img-usr").value;
         saveConfig(cfg);
         overlay.remove();
-        showToast("Settings saved", "success");
+        showToast(L.saved, "success");
       } else if (act === "reset") {
         document.getElementById("ai-s-opt-sys").value =
           DEFAULT_CONFIG.prompts.optimize.system;
@@ -1088,7 +1229,7 @@
           DEFAULT_CONFIG.prompts.describe_image.system;
         document.getElementById("ai-s-img-usr").value =
           DEFAULT_CONFIG.prompts.describe_image.user;
-        showToast("Defaults restored (click Save to apply)", "info");
+        showToast(L.restored, "info");
       }
     });
   }
@@ -1251,7 +1392,7 @@
       true
     );
 
-    console.log("[AI Edit] Plugin loaded. Right-click on selected text to use AI editing features.");
+    console.log("[AI Edit] " + L.loaded);
   }
 
   if (document.readyState === "complete" || document.readyState === "interactive") {
