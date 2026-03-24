@@ -95,6 +95,24 @@
         testDone: " 个模型可用",
         allUnavailable: "所有模型不可用，请检查 API 地址或 Key",
         modelUnavailable: "\u2717 ",
+        testLogFetchModels: "正在获取模型列表\u2026",
+        testLogFetchModelsDone: "模型列表获取成功，共 {count} 个模型",
+        testLogFetchModelsFail: "模型列表获取失败，将逐个测试",
+        testLogSkipNotFound: "\u2717 {model} — 不在可用列表中，跳过",
+        testLogTestAvail: "正在测试 {model} 可用性\u2026",
+        testLogAvailOk: "\u2713 {model} 可用",
+        testLogAvailFail: "\u2717 {model} 不可用",
+        testLogTestWeb: "  测试 {model} 联网能力\u2026",
+        testLogWebOk: "  \u2713 {model} 支持联网",
+        testLogWebFail: "  \u2717 {model} 不支持联网",
+        testLogTestVision: "  测试 {model} 图片识别\u2026",
+        testLogVisionOk: "  \u2713 {model} 支持图片",
+        testLogVisionFail: "  \u2717 {model} 不支持图片",
+        testLogComplete: "测试完成！{count} 个模型可用",
+        testLogAutoFetch: "模型列表为空，自动从 API 获取\u2026",
+        testLogAutoFetchOk: "自动获取到 {count} 个模型",
+        testLogAutoFetchFail: "自动获取失败，请手动输入模型名称",
+        testMissingFields: "请填写 API 地址和 API Key",
         webNotSupported: "当前模型不支持联网搜索",
         visionNotSupported: "当前模型不支持图片解析",
         stop: "停止",
@@ -184,6 +202,24 @@
         testDone: " model(s) available",
         allUnavailable: "All models unavailable \u2014 please check API URL or Key",
         modelUnavailable: "\u2717 ",
+        testLogFetchModels: "Fetching model list\u2026",
+        testLogFetchModelsDone: "Model list retrieved, {count} models found",
+        testLogFetchModelsFail: "Failed to fetch model list, testing individually",
+        testLogSkipNotFound: "\u2717 {model} \u2014 not in available list, skipped",
+        testLogTestAvail: "Testing {model} availability\u2026",
+        testLogAvailOk: "\u2713 {model} available",
+        testLogAvailFail: "\u2717 {model} unavailable",
+        testLogTestWeb: "  Testing {model} web search\u2026",
+        testLogWebOk: "  \u2713 {model} supports web search",
+        testLogWebFail: "  \u2717 {model} no web search",
+        testLogTestVision: "  Testing {model} vision\u2026",
+        testLogVisionOk: "  \u2713 {model} supports vision",
+        testLogVisionFail: "  \u2717 {model} no vision",
+        testLogComplete: "Testing complete! {count} model(s) available",
+        testLogAutoFetch: "Model list empty, auto-fetching from API\u2026",
+        testLogAutoFetchOk: "Auto-fetched {count} models",
+        testLogAutoFetchFail: "Auto-fetch failed, please enter model names manually",
+        testMissingFields: "Please fill in API URL and API Key",
         webNotSupported: "Current model does not support web search",
         visionNotSupported: "Current model does not support image analysis",
         stop: "Stop",
@@ -704,11 +740,13 @@
 
   // ===================== Model Testing =====================
 
-  async function testOpenAIModels(baseUrl, apiKey, modelNames) {
+  async function testOpenAIModels(baseUrl, apiKey, modelNames, onLog) {
+    var log = onLog || function () {};
     var url = baseUrl.replace(/\/+$/, "");
     var headers = { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" };
     var results = [];
 
+    log(L.testLogFetchModels);
     var availableSet = {};
     try {
       var resp = await fetch(url + "/models", { headers: { Authorization: "Bearer " + apiKey } });
@@ -719,8 +757,13 @@
             availableSet[data.data[i].id] = true;
           }
         }
+        log(L.testLogFetchModelsDone.replace("{count}", Object.keys(availableSet).length));
+      } else {
+        log(L.testLogFetchModelsFail);
       }
-    } catch (_) {}
+    } catch (_) {
+      log(L.testLogFetchModelsFail);
+    }
 
     var hasModelsEndpoint = Object.keys(availableSet).length > 0;
 
@@ -730,10 +773,12 @@
       var entry = { name: name, available: false, web_search: false, vision: false };
 
       if (hasModelsEndpoint && !availableSet[name]) {
+        log(L.testLogSkipNotFound.replace("{model}", name));
         results.push(entry);
         continue;
       }
 
+      log(L.testLogTestAvail.replace("{model}", name));
       try {
         var testResp = await fetch(url + "/chat/completions", {
           method: "POST",
@@ -745,15 +790,19 @@
         });
         if (testResp.ok) {
           entry.available = true;
+          log(L.testLogAvailOk.replace("{model}", name));
         } else {
+          log(L.testLogAvailFail.replace("{model}", name));
           results.push(entry);
           continue;
         }
       } catch (_) {
+        log(L.testLogAvailFail.replace("{model}", name));
         results.push(entry);
         continue;
       }
 
+      log(L.testLogTestWeb.replace("{model}", name));
       try {
         var toolResp = await fetch(url + "/chat/completions", {
           method: "POST",
@@ -765,10 +814,13 @@
           }),
         });
         entry.web_search = toolResp.ok;
+        log(toolResp.ok ? L.testLogWebOk.replace("{model}", name) : L.testLogWebFail.replace("{model}", name));
       } catch (_) {
         entry.web_search = false;
+        log(L.testLogWebFail.replace("{model}", name));
       }
 
+      log(L.testLogTestVision.replace("{model}", name));
       try {
         var imgResp = await fetch(url + "/chat/completions", {
           method: "POST",
@@ -782,8 +834,10 @@
           }),
         });
         entry.vision = imgResp.ok;
+        log(imgResp.ok ? L.testLogVisionOk.replace("{model}", name) : L.testLogVisionFail.replace("{model}", name));
       } catch (_) {
         entry.vision = false;
+        log(L.testLogVisionFail.replace("{model}", name));
       }
 
       results.push(entry);
@@ -970,11 +1024,12 @@
 
     var caps = getModelCapabilities(cfg);
 
-    if (hasImage && caps.vision) {
-      html +=
-        '<div class="ai-menu-item" data-action="describe_image">' +
-        '<span class="ai-menu-icon">🖼</span>' + escHTML(L.describeImage) + '</div>';
-      html += '<div class="ai-menu-sep"></div>';
+    if (hasImage) {
+      if (caps.vision) {
+        html +=
+          '<div class="ai-menu-item" data-action="describe_image">' +
+          '<span class="ai-menu-icon">🖼</span>' + escHTML(L.describeImage) + '</div>';
+      }
 
       var curZoom = savedImage ? (parseFloat(savedImage.style.zoom) || 1) : 1;
       var sizes = [1, 0.75, 0.5, 0.33, 0.25, 0.1];
@@ -1038,14 +1093,10 @@
       var ocModels = (cfg.openai_compat && cfg.openai_compat.models) || [];
       for (var i = 0; i < ocModels.length; i++) {
         var om = ocModels[i];
+        if (!om.available) continue;
         var ck = om.name === cfg.model ? "\u2713 " : "\u2003";
-        if (!om.available) {
-          html += '<div class="ai-menu-item disabled">' +
-            L.modelUnavailable + escHTML(om.name) + "</div>";
-        } else {
-          html += '<div class="ai-menu-item" data-action="set-model" data-model="' +
-            escHTML(om.name) + '">' + ck + escHTML(om.name) + "</div>";
-        }
+        html += '<div class="ai-menu-item" data-action="set-model" data-model="' +
+          escHTML(om.name) + '">' + ck + escHTML(om.name) + "</div>";
       }
     } else {
       for (var i = 0; i < cfg.models.length; i++) {
@@ -1751,6 +1802,7 @@
       '<div style="margin-top:10px">' +
       '<button class="ai-btn primary" data-action="test-models">' + escHTML(L.saveAndTest) + '</button>' +
       '</div>' +
+      '<div id="ai-test-log" style="display:none;margin-top:10px;max-height:200px;overflow-y:auto;background:var(--ai-bg,#f6f6f6);border:1px solid var(--ai-border,#ddd);border-radius:6px;padding:8px;font-family:monospace;font-size:11px;line-height:1.6;white-space:pre-wrap;color:var(--ai-fg,#333)"></div>' +
       ocModelsHtml +
       '</div>' +
 
@@ -1843,30 +1895,102 @@
         var testUrl = document.getElementById("ai-s-oc-url").value.trim();
         var testKey = document.getElementById("ai-s-oc-key").value.trim();
         var testInput = document.getElementById("ai-s-oc-models").value.trim();
-        if (!testUrl || !testKey || !testInput) return;
-        var names = testInput.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
-        var toast = showProgressToast(L.testing);
-        testOpenAIModels(testUrl, testKey, names).then(function (results) {
-          toast.remove();
-          cfg.openai_compat.base_url = testUrl;
-          cfg.openai_compat.api_key = testKey;
-          cfg.openai_compat.models_input = testInput;
-          cfg.openai_compat.models = results;
-          var avail = results.filter(function (r) { return r.available; });
-          if (avail.length > 0) {
-            cfg.provider = "openai_compat";
-            cfg.model = avail[0].name;
-            showToast(avail.length + L.testDone, "success");
+        var modelsInputEl = document.getElementById("ai-s-oc-models");
+        if (!testUrl || !testKey) {
+          showToast(L.testMissingFields, "error", 3000);
+          return;
+        }
+        btn.disabled = true;
+        btn.style.opacity = ".5";
+        var logEl = document.getElementById("ai-test-log");
+        if (logEl) {
+          logEl.style.display = "block";
+          logEl.textContent = "";
+        }
+        function appendLog(msg) {
+          if (!logEl) return;
+          logEl.textContent += msg + "\n";
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+        (async function () {
+          var names;
+          if (testInput) {
+            names = testInput.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
           } else {
-            showToast(L.allUnavailable, "error", 5000);
+            appendLog(L.testLogAutoFetch);
+            try {
+              var mResp = await fetch(testUrl.replace(/\/+$/, "") + "/models", {
+                headers: { Authorization: "Bearer " + testKey },
+              });
+              if (mResp.ok) {
+                var mData = await mResp.json();
+                if (mData.data && mData.data.length > 0) {
+                  names = mData.data.map(function (m) { return m.id; });
+                  appendLog(L.testLogAutoFetchOk.replace("{count}", names.length));
+                  var autoInput = names.join(", ");
+                  modelsInputEl.value = autoInput;
+                  testInput = autoInput;
+                } else {
+                  appendLog(L.testLogAutoFetchFail);
+                  btn.disabled = false;
+                  btn.style.opacity = "1";
+                  return;
+                }
+              } else {
+                appendLog(L.testLogAutoFetchFail + " (HTTP " + mResp.status + ")");
+                btn.disabled = false;
+                btn.style.opacity = "1";
+                return;
+              }
+            } catch (fetchErr) {
+              appendLog(L.testLogAutoFetchFail + " (" + fetchErr.message + ")");
+              btn.disabled = false;
+              btn.style.opacity = "1";
+              return;
+            }
           }
-          saveConfig(cfg);
-          overlay.remove();
-          showSettingsPanel();
-        }).catch(function (err) {
-          toast.remove();
-          showToast(L.allUnavailable + " (" + err.message + ")", "error", 5000);
-        });
+          try {
+            var results = await testOpenAIModels(testUrl, testKey, names, appendLog);
+            cfg.openai_compat.base_url = testUrl;
+            cfg.openai_compat.api_key = testKey;
+            cfg.openai_compat.models_input = testInput;
+            cfg.openai_compat.models = results;
+            var avail = results.filter(function (r) { return r.available; });
+            if (avail.length > 0) {
+              cfg.provider = "openai_compat";
+              cfg.model = avail[0].name;
+              appendLog("\n" + L.testLogComplete.replace("{count}", avail.length));
+            } else {
+              appendLog("\n" + L.allUnavailable);
+            }
+            saveConfig(cfg);
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            var oldOcModels = overlay.querySelector(".ai-edit-hint");
+            if (oldOcModels) oldOcModels.remove();
+            var newHtml = "";
+            for (var ri = 0; ri < results.length; ri++) {
+              var rm = results[ri];
+              var rbadge = rm.available ? "\u2713" : "\u2717";
+              var rws = rm.web_search ? " \uD83C\uDF10" : "";
+              var rvs = rm.vision ? " \uD83D\uDDBC" : "";
+              newHtml += '<div style="font-size:12px;margin:2px 0;color:' +
+                (rm.available ? "#0d904f" : "#d93025") + '">' +
+                rbadge + " " + escHTML(rm.name) + rws + rvs + "</div>";
+            }
+            if (newHtml) {
+              var hintDiv = document.createElement("div");
+              hintDiv.className = "ai-edit-hint";
+              hintDiv.style.marginTop = "8px";
+              hintDiv.innerHTML = newHtml;
+              logEl.parentNode.insertBefore(hintDiv, logEl.nextSibling);
+            }
+          } catch (err) {
+            appendLog("\n\u2717 " + L.allUnavailable + " (" + err.message + ")");
+            btn.disabled = false;
+            btn.style.opacity = "1";
+          }
+        })();
         return;
       } else if (act === "save") {
         cfg.provider = document.getElementById("ai-s-provider").value;
@@ -2092,6 +2216,7 @@
       ".ai-select:focus{border-color:#4a9eff}",
       ".ai-text-input{background:#333;border-color:#555;color:#ddd}",
       ".ai-text-input:focus{border-color:#4a9eff}",
+      "#ai-test-log{background:#1e1e1e !important;border-color:#555 !important;color:#ccc !important}",
       "}",
     ].join("\n");
     document.head.appendChild(css);
