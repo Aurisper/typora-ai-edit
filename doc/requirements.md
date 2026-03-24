@@ -1,201 +1,182 @@
 # Typora AI Edit Plugin — Requirements
 
-## Project overview
+## Project Overview
 
-Develop a lightweight plugin for the Typora Markdown editor on macOS that uses AI capabilities from a ChatGPT Plus subscription to help users polish and improve their documents.
+A powerful AI editing plugin for the Typora Markdown editor on macOS, supporting ChatGPT Plus OAuth and any OpenAI-compatible API. All AI operations happen inline — text optimization, Q&A, image analysis, and diagram generation — with results rendered as native Markdown.
 
-## Technical background
+## Technical Background
 
 ### Typora
 
 - Commercial, closed-source Markdown editor built on Electron
 - Supports injecting custom JavaScript by editing HTML files in the resource bundle
 - macOS injection path: `Contents/Resources/TypeMark/index.html`
+- Renders HTML blocks, Mermaid, and math natively
 
-### AI capabilities
+### AI Capabilities
 
-- Uses the Codex Responses API with a ChatGPT Plus subscription account
-- API endpoint: `https://chatgpt.com/backend-api/codex/responses`
-- Authentication: OAuth via `oauth-cli-kit`, with tokens persisted in `~/Library/Application Support/oauth-cli-kit/auth/codex.json`
+- **ChatGPT Plus (OAuth)**: Codex Responses API at `https://chatgpt.com/backend-api/codex/responses`, authenticated via `oauth-cli-kit`
+- **OpenAI-compatible API**: Any endpoint implementing `/v1/chat/completions` (OpenAI, Azure, DeepSeek, Qwen, Kimi, local LLM, etc.)
 - Protocol: HTTP POST + SSE (Server-Sent Events) streaming responses
 
-## Functional requirements
+## Functional Requirements
 
-### Feature 1: AI polish for selected text
+### Feature 1: AI Optimize Selection
 
-- **Trigger**: After selecting text, invoke from the context menu
-- **Context menu item**: “AI polish selection”
-- **Input**: Text selected by the user in Typora
-- **Behavior**: Send the selection to the AI and ask it to polish or improve that passage
-- **Output**: Replace the current selection with the AI’s improved text
+- **Trigger**: Right-click on selected text → "AI Optimize Selection"
+- **Input**: User-selected text + optional extra instructions
+- **Behavior**: Opens a prompt dialog for additional instructions and web search toggle. Streams AI output in the dialog. User confirms before replacement.
+- **Output**: Replaces selected text after user confirmation
 
-### Feature 2: AI polish for selection with full-document context
+### Feature 2: AI Optimize Selection (With Context)
 
-- **Trigger**: After selecting text, invoke from the context menu
-- **Context menu item**: “AI polish selection (with full document)”
-- **Input**: The user’s selection plus the full text of the current document
-- **Behavior**: Use the full document as context so the AI can refine the selection while keeping style and logic consistent with the whole document
-- **Output**: Replace the current selection with the AI’s improved text
+- **Trigger**: Right-click on selected text → "AI Optimize (With Context)"
+- **Input**: Selected text + full document content + optional extra instructions
+- **Behavior**: Same as Feature 1, but passes the full document as context for style/logic consistency
+- **Output**: Replaces selected text after user confirmation
 
-### Feature 3: Model selection
+### Feature 3: AI Image Description
 
-- **Trigger**: Via a submenu in the context menu
-- **Context menu item**: “AI model” → submenu listing available models
-- **Available models** (ChatGPT Plus subscription):
-  - gpt-5.4
-  - gpt-5.4-mini
-  - gpt-5.2
-  - gpt-5.1
-  - gpt-5
-  - gpt-5.3-codex
-  - gpt-5.2-codex
-  - gpt-5.1-codex
-  - gpt-5-codex
-- **Interaction**: Show a checkmark (✓) next to the active model; click to switch
-- **Persistence**: Save the chosen model in the config file and restore it on the next Typora launch
+- **Trigger**: Right-click on an image → "AI Describe Image"
+- **Input**: Image data (local file, web URL, data URI) + optional user instructions
+- **Behavior**: Auto-compresses image (max 2048px, JPEG 80%), sends to AI. Streams output in dialog. Smart prompt logic: custom instructions override default prompts.
+- **Output**: Copy to clipboard or insert below image
+- **Image source handling**: Web URLs (download via Node.js http/https), local files (base64), data URIs, canvas fallback
 
-### Feature 4: Web search toggle
+### Feature 4: AI Q&A
 
-- **Trigger**: Via the context menu
-- **Context menu item**: “AI web search” (toggle; checked means on)
-- **Behavior**: When on, the AI may use the internet for reference while polishing; when off, inference stays offline-only
-- **Persistence**: Save the toggle state in the config file
+- **Trigger**: Press `⌘E` (configurable) or right-click (when no text selected) → "AI Q&A"
+- **Input**: User question + optional web search + optional full document context
+- **Behavior**: Opens prompt dialog. If cursor is inside a code block, auto-detects code content and injects it into the prompt with specialized coding instructions. Streams AI output.
+- **Output**: Insert as Markdown blockquote, or "Replace Code Block" when in a code block
+- **Code block support**: Detects active CodeMirror blocks (Mermaid, fenced code) and rendered HTML blocks via `.md-focus` class, `document.activeElement`, and `.CodeMirror-focused`
 
-### Feature 5: AI image description
+### Feature 5: Model Selection
 
-- **Trigger**: Right-click on an image in the editor
-- **Context menu item**: "AI Describe Image"
-- **Input**: The image clicked by the user (local file, web URL, or embedded base64)
-- **Behavior**: Extract image data and send it to the AI along with an image description prompt; user may enter additional instructions (e.g., "focus on the chart data", "extract visible text")
-- **Output**: Display the AI's description in a result dialog with options to:
-  - **Copy** the result to clipboard
-  - **Insert Below Image** to place the description text after the image in the document
-- **Image source handling**:
-  - Web URLs (`https://…`) — passed directly to the API
-  - Local files (absolute path or `file://`) — read via `fs.readFileSync()` and converted to base64
-  - Data URIs (`data:image/…`) — used directly
-  - Canvas fallback — extract pixel data from rendered `<img>` element
+- **Trigger**: Right-click → "AI Model" submenu
+- **ChatGPT OAuth**: Lists preset models (gpt-5.4, gpt-5.4-mini, etc.)
+- **OpenAI-compatible**: Lists tested models; unavailable models hidden from menu
+- **Persistence**: Saved in `localStorage`
 
-### Feature 6: Prompt settings
+### Feature 6: Web Search Toggle
 
-- **Trigger**: Via the context menu
-- **Context menu item**: “AI edit settings…”
-- **Behavior**: Open a floating settings panel to edit prompt configuration visually; read/write the underlying config file
+- **Trigger**: Right-click → "AI Web Search" toggle
+- **Behavior**: When enabled, AI may use the internet. Grayed out when current model doesn't support web search (OpenAI-compatible).
 
-## Prompt configuration
+### Feature 7: Multi-Provider API Support
 
-All settings live in a single config file under the user’s home directory so users can change them without touching code.
+- **Trigger**: Settings panel → API Provider dropdown
+- **ChatGPT OAuth Login**: Uses `oauth-cli-kit` token, shows connection status
+- **OpenAI Compatible**: Manual input for API URL, API Key, and comma-separated model names
+- **Save & Test**: Automatically tests each model for availability, web search (tools), and vision (image) capability with real-time progress log
+- **Auto-fetch**: When model list is empty, fetches all available models from `/v1/models`
 
-### Config file path
+### Feature 8: Prompt Settings Panel
 
-```
-~/Library/Application Support/typora-ai-edit/config.json
-```
+- **Trigger**: Right-click → "AI Edit Settings…"
+- **Contents**: Editable system/user prompts for all features (Optimize, Optimize with Context, Image Description, Q&A, Q&A with Context), API provider config, keyboard shortcut recorder, model test UI
+- **Actions**: Save, Restore Defaults, Cancel
 
-Using the user data directory avoids the file being wiped when Typora updates.
+### Feature 9: Clipboard Operations
 
-### Config file format
+- **Context menu items**: Cut (`⌘X`), Copy (`⌘C`), Paste (`⌘V`)
+- **Paste**: Electron clipboard → `document.execCommand("insertText")`
 
-```json
+### Feature 10: Stop Generation
+
+- All AI operations support cancellation via `AbortController`
+- Stop button visible in streaming dialogs
+
+### Feature 11: Code Block Editing
+
+- **Detection**: `findFocusedBlock()` detects active code blocks via Typora `.md-focus` class, `document.activeElement`, and `.CodeMirror-focused`
+- **CodeMirror integration**: Read/write code via `cm.getValue()` / `cm.setValue()`. Re-activates stale CM instances after dialog closes.
+- **Rendered HTML blocks**: File-level Markdown replacement via `fs.writeFileSync` + Typora reload API
+
+## Configuration
+
+### Storage
+
+`localStorage` (key: `typora-ai-edit-config`)
+
+### Data Shape
+
+```javascript
 {
-  "model": "gpt-5.4",
-  "web_search": false,
-  "models": [
-    "gpt-5.4",
-    "gpt-5.4-mini",
-    "gpt-5.2",
-    "gpt-5.1",
-    "gpt-5",
-    "gpt-5.3-codex",
-    "gpt-5.2-codex",
-    "gpt-5.1-codex",
-    "gpt-5-codex"
-  ],
-  "prompts": {
-    "optimize": {
-      "system": "You are a professional Chinese editor skilled in polishing and refining text.",
-      "user": "Please improve the following text. Preserve the original meaning and make the wording clearer and more professional. Return only the improved text with no explanation.\n\n{selection}"
-    },
-    "optimize_with_context": {
-      "system": "You are a professional Chinese editor who polishes selected passages with full awareness of the surrounding document.",
-      "user": "Here is the full document:\n\n<document>\n{document}\n</document>\n\nPlease improve only the selected part below so it matches the document’s style, logic, and terminology. Return only the improved text with no explanation.\n\n<selection>\n{selection}\n</selection>"
-    },
-    "describe_image": {
-      "system": "You are a professional image analyst skilled at interpreting and describing visual content in detail.",
-      "user": "Please analyze and describe the following image in detail. Provide a comprehensive interpretation including key elements, context, and any text visible in the image."
-    }
+  provider: "chatgpt" | "openai_compat",
+  model: "gpt-5.4",
+  web_search: false,
+  openai_compat: {
+    base_url: "",
+    api_key: "",
+    models_input: "",
+    models: [{ name, available, web_search, vision }]
+  },
+  models: ["gpt-5.4", ...],
+  prompts: {
+    optimize: { system, user },
+    optimize_with_context: { system, user },
+    describe_image: { system, user },
+    qa: { system, user },
+    qa_with_context: { system, user }
+  },
+  shortcuts: {
+    qa: { key, metaKey, shiftKey, ctrlKey, altKey }
   }
 }
 ```
 
-### Configuration fields
+### Prompt Variables
 
-| Field | Type | Description |
-|------|------|------|
-| `model` | string | Name of the currently selected model |
-| `web_search` | boolean | Whether web search is enabled |
-| `models` | string[] | List of available models for the submenu |
-| `prompts.optimize` | object | Prompts for Feature 1 (`system` + `user`) |
-| `prompts.optimize_with_context` | object | Prompts for Feature 2 (`system` + `user`) |
-| `prompts.describe_image` | object | Prompts for Feature 5 (`system` + `user`) |
+| Variable | Used In | Meaning |
+|----------|---------|---------|
+| `{selection}` | Optimize prompts | Text selected in Typora |
+| `{document}` | Context prompts | Full document Markdown content |
+| `{question}` | Q&A prompts | User's question |
 
-### Prompt variables
+## Non-functional Requirements
 
-| Variable | Meaning |
-|------|------|
-| `{selection}` | Text selected in Typora |
-| `{document}` | Full content of the current document |
+- Auto language detection: Chinese or English UI based on `navigator.language`
+- Dark mode: All UI adapts to `prefers-color-scheme: dark`
+- Modular codebase: 13 modules under `src/modules/`, built via `build.sh`
+- No inline autocomplete, no chat panel, no GitHub Copilot features
 
-### Design notes
+## Architecture
 
-- **First-run defaults**: On startup, if the config file is missing, create it with defaults
-- **Hot reload**: Reread the config on each action so changes apply immediately without restarting Typora
-- **Extensibility**: Users may add prompt entries or change the model list as needed
+### Core Flow
 
-## Non-functional requirements
+```
+User action (right-click / ⌘E)
+    ↓
+Detect context (selection, image, code block)
+    ↓
+Open prompt dialog (with streaming UI)
+    ↓
+Read token (OAuth) or use API Key (OpenAI-compatible)
+    ↓
+Build request (prompts + context + image)
+    ↓
+POST to API (SSE streaming)
+    ↓
+Stream output in dialog + Stop button
+    ↓
+User confirms → Insert / Replace / Copy
+```
 
-- No inline autocomplete
-- No chat panel
-- No GitHub Copilot–related features
-
-## Technical approach (summary)
-
-### Architecture
-
-A small standalone JS script loaded via Typora’s injection mechanism; no dependency on heavy components such as `@github/copilot-language-server`.
-
-### Core modules
+### Module Structure
 
 | Module | Role |
-|------|------|
-| Token loading | Read the OAuth token from local `oauth-cli-kit` storage |
-| Editor integration | Use Typora’s global APIs to read selection and full document and replace the selection |
-| API calls | Call the Codex Responses API and parse the SSE stream |
-| Image handling | Read local/remote/embedded images and convert to base64 for API input |
-| UI entry | Context menu (six items / submenus) |
-| Settings panel | Floating dialog for editing prompt configuration |
-
-### Core flow
-
-```
-User selects text or right-clicks image
-    ↓
-Trigger action (context menu)
-    ↓
-Read oauth-cli-kit token
-    ↓
-Build request (selection / selection + full document / image + prompt)
-    ↓
-POST to Codex Responses API (SSE stream)
-    ↓
-Receive result from the AI
-    ↓
-Replace selection / show image result dialog
-```
-
-## Reference projects
-
-| Project | Purpose |
-|------|------|
-| `typora-copilot-main` | Reference for Typora injection and editor API usage |
-| `ChatGPTPlus` | Reference for OAuth, Codex API calls, and SSE parsing |
+|--------|------|
+| 01-i18n | Language detection + localized strings (Chinese/English) |
+| 02-config | Constants, defaults, load/save config |
+| 03-platform | File I/O, OAuth token, image processing |
+| 04-api | Codex API + OpenAI-compatible API + SSE parsing |
+| 05-model-test | Automated model capability testing |
+| 06-editor | Selection, code block detection, replacement |
+| 07-ui-core | Toast, clipboard, shortcut helpers |
+| 08-ui-menu | Context menu building and event handling |
+| 09-ui-dialogs | Optimize + Image prompt dialogs with streaming |
+| 10-ui-qa | AI Q&A dialog with code block support |
+| 11-ui-settings | Settings panel with model testing UI |
+| 12-styles | CSS injection (light + dark theme) |
+| 13-main | Initialization, event binding, startup |
