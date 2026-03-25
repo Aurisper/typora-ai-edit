@@ -182,8 +182,8 @@
         if (e.name === "AbortError") {
           stream.showResult(L.confirmReplace);
         } else {
+          pluginLog("error", "Optimize failed: " + e.message);
           stream.showError(e.message);
-          console.error("[AI Edit]", e);
         }
       });
     }
@@ -276,8 +276,8 @@
           var insertBtn = '<button class="ai-btn primary" data-action="insert-img" style="margin-right:8px">' + escHTML(L.insertBtn) + '</button>';
           stream.showResult(L.copyBtn, insertBtn);
         } else {
+          pluginLog("error", "Image analysis failed: " + e.message);
           stream.showError(e.message);
-          console.error("[AI Edit]", e);
         }
       });
     }

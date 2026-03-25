@@ -85,6 +85,15 @@ Ask AI to generate a flowchart — it outputs HTML/CSS/SVG code that Typora rend
 </tr>
 </table>
 
+### Feishu Integration
+
+- **One-Click Archive to Feishu** — Right-click → "Feishu Archive" to create a Feishu online doc
+- **AI Title Generation** — Automatically generates a concise title from your content
+- **Pure JS DOCX** — In-memory Markdown→DOCX conversion, zero external dependencies (no Pandoc)
+- **Session Management** — Same document overwrites previous version; different documents are isolated
+- **Document Manager** — Browse, search (title + full text), paginate, and delete archived Feishu docs
+- **Operation Log** — View log, one-click copy, one-click clear
+
 ### Productivity
 
 - **Native Markdown Output** — Exportable to PDF / HTML / Word
@@ -104,6 +113,9 @@ Ask AI to generate a flowchart — it outputs HTML/CSS/SVG code that Typora rend
 | Analyze an image | Right-click image → AI Describe Image → "Extract all visible data" |
 | Build a Q&A knowledge base | Keep asking follow-up questions with full context enabled |
 | Translate content | Select text → right-click → AI Optimize → "Translate to Japanese" |
+| Archive to Feishu | Right-click → "Feishu Archive" → auto title & online doc |
+| Manage Feishu docs | Right-click → "Feishu Documents" → search, browse, delete |
+| View operation log | Right-click → "View Log" → check history, copy or clear |
 
 ## Getting Started
 
@@ -179,6 +191,10 @@ sudo bash bin/uninstall.sh
 │ ⚙ AI Model                      ▸   │
 │ 🌐   AI Web Search                  │
 │ ──────────────────────────────────── │
+│ 📤 Feishu Archive                    │
+│ 📂 Feishu Documents                 │
+│ 📋 View Log                         │
+│ ──────────────────────────────────── │
 │ ⚙ AI Edit Settings…                 │
 └──────────────────────────────────────┘
 ```
@@ -213,7 +229,11 @@ sudo cp src/typora-ai-edit.js \
 │   │   ├── 10-ui-qa.js         # AI Q&A dialog
 │   │   ├── 11-ui-settings.js   # Settings panel
 │   │   ├── 12-styles.js        # CSS injection
-│   │   └── 13-main.js          # Initialization & event binding
+│   │   ├── 13-main.js          # Initialization & event binding
+│   │   ├── 14a-feishu-core.js  # Feishu API: auth, upload, import, delete
+│   │   ├── 14b-feishu-ui.js    # Feishu archive flow & progress UI
+│   │   ├── 14c-md2docx.js      # Pure JS in-memory Markdown → DOCX
+│   │   └── 15-logger.js        # Operation log panel
 │   └── typora-ai-edit.js       # Built output (auto-generated)
 ├── build.sh                    # Build: modules → single IIFE
 ├── bin/
@@ -221,7 +241,8 @@ sudo cp src/typora-ai-edit.js \
 │   └── uninstall.sh            # Uninstall script
 └── doc/
     ├── requirements.md         # Requirements document
-    └── development.md          # Technical details
+    ├── development.md          # Technical details
+    └── feishu-dev-plan.md      # Feishu integration dev plan
 ```
 
 ### Technical Overview
@@ -237,6 +258,9 @@ sudo cp src/typora-ai-edit.js \
 | Image Handling | Local → base64, web → download, canvas fallback, auto-compress |
 | Context Menu | Custom HTML overlay on `contextmenu` event |
 | Diagram Rendering | AI generates HTML/CSS/SVG or Mermaid → Typora renders inline |
+| Feishu Archive | Pure JS DOCX generation (CRC32+ZIP+OOXML) → `fetch` upload → import API |
+| Document Manager | Session-based doc list with search (title + cached content), pagination, delete |
+| Operation Log | In-memory log store (500 entries) + modal panel with copy/clear |
 
 ## Contributing
 
@@ -249,6 +273,21 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before
 Please also review our [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Policy](SECURITY.md).
 
 ## Changelog
+
+<details open>
+<summary><strong>v0.7.0</strong> — Feishu Integration & Document Management (2026-03-25)</summary>
+
+- **New: One-click Feishu archive** — Right-click → "Feishu Archive" to create an online Feishu document from the current Markdown
+- **New: AI title generation** — Automatically generates a concise document title via AI
+- **New: Pure JS DOCX engine** — In-memory Markdown→DOCX conversion using custom CRC32 + ZIP + OOXML, zero external dependencies (no Pandoc, no Node.js fs/child_process)
+- **New: Feishu document manager** — Browse all archived docs, search by title or full text (cached), paginate (10/page), delete with one click
+- **New: Feishu session management** — Same document overwrites previous version; different documents are isolated; content cached for search
+- **New: Operation log panel** — Right-click → "View Log" to inspect plugin activity, errors, one-click copy & clear
+- **New: Feishu settings** — Configure App ID, App Secret, and target folder token in the settings panel
+- **Improved: Logging integration** — All major operations and errors are captured in the log panel
+- **Architecture: Feishu modules** — `14a-feishu-core.js` (API), `14b-feishu-ui.js` (flow & UI), `14c-md2docx.js` (DOCX engine), `15-logger.js` (log)
+
+</details>
 
 <details>
 <summary><strong>v0.6.0</strong> — Modular Architecture & Code Block Editing (2026-03-24)</summary>

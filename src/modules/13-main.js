@@ -70,7 +70,7 @@
       }
     }, true);
 
-    console.log("[AI Edit] " + L.loaded);
+    pluginLog("info", L.loaded);
   }
 
   if (document.readyState === "complete" || document.readyState === "interactive") {

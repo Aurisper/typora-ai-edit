@@ -58,7 +58,9 @@
 
     if (!resp.ok) {
       var errText = await resp.text().catch(function () { return ""; });
-      throw new Error("API " + resp.status + ": " + errText.slice(0, 200));
+      var errMsg = "API " + resp.status + ": " + errText.slice(0, 200);
+      pluginLog("error", "Codex API: " + errMsg);
+      throw new Error(errMsg);
     }
 
     return await parseSSE(resp, config._onChunk);
@@ -164,7 +166,9 @@
 
     if (!resp.ok) {
       var errText = await resp.text().catch(function () { return ""; });
-      throw new Error("API " + resp.status + ": " + errText.slice(0, 200));
+      var errMsg = "API " + resp.status + ": " + errText.slice(0, 200);
+      pluginLog("error", "OpenAI API: " + errMsg);
+      throw new Error(errMsg);
     }
 
     return await parseOpenAISSE(resp, config._onChunk);

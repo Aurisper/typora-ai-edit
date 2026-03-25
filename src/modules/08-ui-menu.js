@@ -100,6 +100,17 @@
       '<div class="ai-menu-item" data-action="settings">' +
       '<span class="ai-menu-icon">⚙</span>' + escHTML(L.aiEditSettings) + '</div>';
 
+    html += '<div class="ai-menu-sep"></div>';
+    html +=
+      '<div class="ai-menu-item" data-action="feishu_archive">' +
+      '<span class="ai-menu-icon">📤</span>' + escHTML(L.feishuArchive) + '</div>';
+    html +=
+      '<div class="ai-menu-item" data-action="feishu_docs">' +
+      '<span class="ai-menu-icon">📂</span>' + escHTML(L.feishuDocManager) + '</div>';
+    html +=
+      '<div class="ai-menu-item" data-action="view_log">' +
+      '<span class="ai-menu-icon">📋</span>' + escHTML(L.logMenu) + '</div>';
+
     return html;
   }
 
@@ -184,6 +195,7 @@
     } else if (action === "set-model") {
       cfg.model = item.dataset.model;
       saveConfig(cfg);
+      pluginLog("info", "Model switched: " + cfg.model);
       showToast(L.modelSwitched + cfg.model, "success");
     } else if (action === "toggle-web") {
       var mc = getModelCapabilities(cfg);
@@ -196,6 +208,12 @@
       showToast(cfg.web_search ? L.webSearchOn : L.webSearchOff, "success");
     } else if (action === "settings") {
       showSettingsPanel();
+    } else if (action === "feishu_archive") {
+      archiveToFeishu();
+    } else if (action === "feishu_docs") {
+      showFeishuDocManager();
+    } else if (action === "view_log") {
+      showLogPanel();
     }
   }
 

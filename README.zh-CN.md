@@ -85,6 +85,15 @@
 </tr>
 </table>
 
+### 飞书协同
+
+- **一键归档到飞书** — 右键 →「飞书归档」，自动生成飞书在线文档
+- **AI 标题生成** — 根据文档内容自动生成简洁标题
+- **纯 JS DOCX 引擎** — 内存中 Markdown→DOCX 转换，零外部依赖（无需 Pandoc）
+- **Session 管理** — 同文档覆盖更新，不同文档独立管理
+- **文档管理器** — 浏览、搜索（标题 + 全文）、分页、删除已归档的飞书文档
+- **操作日志面板** — 查看日志、一键复制、一键清除
+
 ### 生产力
 
 - **原生 Markdown 输出** — 可导出 PDF / HTML / Word
@@ -104,6 +113,9 @@
 | 分析图片内容 | 右键图片 → AI 图片解读 → "提取图中所有数据" |
 | 构建问答知识库 | 在一个文档中持续追问，开启全文上下文 |
 | 翻译内容 | 选中文字 → 右键 → AI 优化 → "翻译为日语" |
+| 归档到飞书 | 右键 →「飞书归档」→ 自动生成标题并创建飞书在线文档 |
+| 管理飞书文档 | 右键 →「飞书文档管理」→ 搜索、浏览、删除 |
+| 查看操作日志 | 右键 →「查看日志」→ 查看操作记录、复制或清除 |
 
 ## 开始使用
 
@@ -179,6 +191,10 @@ sudo bash bin/uninstall.sh
 │ ⚙ AI 模型                  ▸   │
 │ 🌐   AI 联网搜索                │
 │ ─────────────────────────────── │
+│ 📤 飞书归档                       │
+│ 📂 飞书文档管理                    │
+│ 📋 查看日志                       │
+│ ─────────────────────────────── │
 │ ⚙ AI 编辑设置…                  │
 └──────────────────────────────────┘
 ```
@@ -213,7 +229,11 @@ sudo cp src/typora-ai-edit.js \
 │   │   ├── 10-ui-qa.js         # AI 问答对话框
 │   │   ├── 11-ui-settings.js   # 设置面板
 │   │   ├── 12-styles.js        # CSS 注入
-│   │   └── 13-main.js          # 初始化 + 事件绑定
+│   │   ├── 13-main.js          # 初始化 + 事件绑定
+│   │   ├── 14a-feishu-core.js  # 飞书 API：鉴权、上传、导入、删除
+│   │   ├── 14b-feishu-ui.js    # 飞书归档流程 + 进度 UI
+│   │   ├── 14c-md2docx.js      # 纯 JS 内存 Markdown → DOCX
+│   │   └── 15-logger.js        # 操作日志面板
 │   └── typora-ai-edit.js       # 构建产物（自动生成）
 ├── build.sh                    # 构建脚本：模块 → 单文件 IIFE
 ├── bin/
@@ -221,7 +241,8 @@ sudo cp src/typora-ai-edit.js \
 │   └── uninstall.sh            # 卸载脚本
 └── doc/
     ├── requirements.md         # 需求文档
-    └── development.md          # 技术实现文档
+    ├── development.md          # 技术实现文档
+    └── feishu-dev-plan.md      # 飞书集成开发计划
 ```
 
 ### 技术要点
@@ -237,6 +258,9 @@ sudo cp src/typora-ai-edit.js \
 | 图片处理 | 本地 → base64，网络 → 下载，canvas 兜底，自动压缩 |
 | 右键菜单 | 拦截 `contextmenu` 事件，自定义 HTML 浮层 |
 | 图表渲染 | AI 生成 HTML/CSS/SVG 或 Mermaid → Typora 内联渲染 |
+| 飞书归档 | 纯 JS DOCX 生成（CRC32+ZIP+OOXML）→ `fetch` 上传 → 导入 API |
+| 文档管理器 | Session 文档列表 + 搜索（标题 + 缓存内容）+ 分页 + 删除 |
+| 操作日志 | 内存日志存储（500 条）+ 模态面板，支持复制/清除 |
 
 ## 参与贡献
 
@@ -249,6 +273,21 @@ sudo cp src/typora-ai-edit.js \
 请同时查阅我们的[行为准则](CODE_OF_CONDUCT.md)和[安全政策](SECURITY.md)。
 
 ## 更新日志
+
+<details open>
+<summary><strong>v0.7.0</strong> — 飞书集成 & 文档管理 (2026-03-25)</summary>
+
+- **新增：一键归档到飞书** — 右键 →「飞书归档」，自动将当前 Markdown 文档创建为飞书在线文档
+- **新增：AI 标题生成** — 根据文档内容自动生成简洁标题
+- **新增：纯 JS DOCX 引擎** — 内存中 Markdown→DOCX 转换（自写 CRC32 + ZIP + OOXML），零外部依赖（无需 Pandoc、Node.js fs/child_process）
+- **新增：飞书文档管理器** — 浏览所有已归档文档，支持按标题或全文搜索（内容缓存）、分页浏览（每页 10 条）、一键删除
+- **新增：飞书 Session 管理** — 同文档覆盖更新旧版，不同文档独立管理，自动缓存内容用于搜索
+- **新增：操作日志面板** — 右键 →「查看日志」，查看操作记录与错误，支持一键复制、一键清除
+- **新增：飞书设置项** — 设置面板中可配置 App ID、App Secret、目标文件夹 Token
+- **优化：日志集成** — 所有主要操作与错误均记录到日志面板
+- **架构：飞书模块拆分** — `14a-feishu-core.js`（API）、`14b-feishu-ui.js`（流程 UI）、`14c-md2docx.js`（DOCX 引擎）、`15-logger.js`（日志）
+
+</details>
 
 <details>
 <summary><strong>v0.6.0</strong> — 模块化架构 & 代码块编辑 (2026-03-24)</summary>

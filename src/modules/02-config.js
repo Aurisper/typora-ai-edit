@@ -72,6 +72,11 @@
     shortcuts: {
       qa: { key: "e", metaKey: true, shiftKey: false, ctrlKey: false, altKey: false },
     },
+    feishu: {
+      app_id: "",
+      app_secret: "",
+      target_folder: "",
+    },
   };
 
   function loadConfig() {
@@ -85,6 +90,7 @@
           prompts: { ...DEFAULT_CONFIG.prompts, ...(parsed.prompts || {}) },
           shortcuts: { ...DEFAULT_CONFIG.shortcuts, ...(parsed.shortcuts || {}) },
           openai_compat: { ...DEFAULT_CONFIG.openai_compat, ...(parsed.openai_compat || {}) },
+          feishu: { ...DEFAULT_CONFIG.feishu, ...(parsed.feishu || {}) },
         };
       }
     } catch (e) {

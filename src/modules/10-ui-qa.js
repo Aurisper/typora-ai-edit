@@ -138,8 +138,8 @@
             stream.showResult(L.confirmInsert);
           }
         } else {
+          pluginLog("error", "QA failed: " + e.message);
           stream.showError(e.message);
-          console.error("[AI Edit]", e);
         }
       });
     }
@@ -184,7 +184,7 @@
         showToast(L.insertFail, "error");
       }
     } catch (e) {
-      console.error("[AI Edit] insertQAResponse:", e);
+      pluginLog("error", "QA insert failed: " + e.message);
       writeToClipboard(text);
       showToast(L.insertFail, "error");
     }

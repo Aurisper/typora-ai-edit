@@ -119,6 +119,54 @@
         streamWaiting: "等待 AI 响应\u2026",
         replaceBlock: "替换代码块",
         codeBlockHint: "（已检测到代码块，AI 将直接修改代码）",
+        feishuArchive: "飞书协同",
+        feishuArchiving: "正在归档到飞书…",
+        feishuStepTitle: "AI 生成标题",
+        feishuStepConvert: "转换 DOCX",
+        feishuStepAuth: "飞书鉴权",
+        feishuStepUpload: "上传文件",
+        feishuStepImport: "导入文档",
+        feishuStepDelete: "清理旧版本",
+        feishuStepPoll: "等待导入完成",
+        feishuDone: "归档成功！",
+        feishuOpenDoc: "打开飞书文档 →",
+        feishuCopyLink: "复制链接",
+        feishuFailed: "飞书归档失败: ",
+        feishuNoContent: "文档为空，无法归档",
+        feishuNoCreds: "未找到飞书凭证文件 feishu-credentials.json",
+        feishuNoPandoc: "未检测到 Pandoc，请先安装: brew install pandoc",
+        feishuPandocFail: "Pandoc 转换失败: ",
+        feishuFileTooLarge: "文件超过 20MB 限制",
+        feishuTimeout: "飞书导入超时，请稍后重试",
+        feishuSection: "飞书协同",
+        feishuAppId: "App ID",
+        feishuAppSecret: "App Secret",
+        feishuTargetFolder: "目标文件夹 Token（可选）",
+        feishuFolderHint: "在飞书云盘中创建文件夹，从 URL 获取 folder token",
+        feishuDocManager: "飞书文档管理",
+        feishuDocEmpty: "暂无已归档文档",
+        feishuDocNoMatch: "无匹配文档",
+        feishuDocDelete: "删除",
+        feishuDocDeleting: "删除中…",
+        feishuDocDeleted: "文档已删除",
+        feishuDocDeleteFail: "删除失败: ",
+        feishuDocTime: "归档于 ",
+        feishuDocLocal: "本地文件: ",
+        feishuDocConfirmDelete: "确认删除飞书文档「{title}」？此操作不可恢复。",
+        feishuDocSearch: "搜索标题或内容…",
+        feishuDocMatchTitle: "标题匹配",
+        feishuDocMatchContent: "内容匹配",
+        feishuDocPrev: "上一页",
+        feishuDocNext: "下一页",
+        feishuDocPageInfo: "第 {page} / {total} 页",
+        feishuDocCount: "共 {count} 篇文档",
+        logTitle: "操作日志",
+        logMenu: "查看日志",
+        logEmpty: "暂无日志",
+        logCopy: "复制全部",
+        logClear: "清除日志",
+        logCopied: "日志已复制到剪贴板",
+        logCleared: "日志已清除",
         loaded: "插件已加载。右键选中文字即可使用 AI 编辑功能。",
       }
     : {
@@ -232,6 +280,54 @@
         streamWaiting: "Waiting for AI response\u2026",
         replaceBlock: "Replace Code Block",
         codeBlockHint: "(Code block detected \u2014 AI will modify code directly)",
+        feishuArchive: "Feishu Archive",
+        feishuArchiving: "Archiving to Feishu…",
+        feishuStepTitle: "Generate title",
+        feishuStepConvert: "Convert DOCX",
+        feishuStepAuth: "Authenticate",
+        feishuStepUpload: "Upload file",
+        feishuStepImport: "Import document",
+        feishuStepDelete: "Clean old version",
+        feishuStepPoll: "Waiting for import",
+        feishuDone: "Archive successful!",
+        feishuOpenDoc: "Open Feishu doc →",
+        feishuCopyLink: "Copy link",
+        feishuFailed: "Feishu archive failed: ",
+        feishuNoContent: "Document is empty, cannot archive",
+        feishuNoCreds: "Feishu credentials file not found (feishu-credentials.json)",
+        feishuNoPandoc: "Pandoc not found. Install: brew install pandoc",
+        feishuPandocFail: "Pandoc conversion failed: ",
+        feishuFileTooLarge: "File exceeds 20MB limit",
+        feishuTimeout: "Feishu import timed out, please retry",
+        feishuSection: "Feishu Integration",
+        feishuAppId: "App ID",
+        feishuAppSecret: "App Secret",
+        feishuTargetFolder: "Target Folder Token (optional)",
+        feishuFolderHint: "Create a folder in Feishu Drive, copy folder token from URL",
+        feishuDocManager: "Feishu Documents",
+        feishuDocEmpty: "No archived documents yet",
+        feishuDocNoMatch: "No matching documents",
+        feishuDocDelete: "Delete",
+        feishuDocDeleting: "Deleting…",
+        feishuDocDeleted: "Document deleted",
+        feishuDocDeleteFail: "Delete failed: ",
+        feishuDocTime: "Archived at ",
+        feishuDocLocal: "Local file: ",
+        feishuDocConfirmDelete: "Delete Feishu document \"{title}\"? This cannot be undone.",
+        feishuDocSearch: "Search title or content…",
+        feishuDocMatchTitle: "title match",
+        feishuDocMatchContent: "content match",
+        feishuDocPrev: "Prev",
+        feishuDocNext: "Next",
+        feishuDocPageInfo: "Page {page} / {total}",
+        feishuDocCount: "{count} document(s)",
+        logTitle: "Operation Log",
+        logMenu: "View Log",
+        logEmpty: "No logs yet",
+        logCopy: "Copy All",
+        logClear: "Clear Log",
+        logCopied: "Log copied to clipboard",
+        logCleared: "Log cleared",
         loaded: "Plugin loaded. Right-click on selected text to use AI editing features.",
       };
 
@@ -309,6 +405,11 @@
     shortcuts: {
       qa: { key: "e", metaKey: true, shiftKey: false, ctrlKey: false, altKey: false },
     },
+    feishu: {
+      app_id: "",
+      app_secret: "",
+      target_folder: "",
+    },
   };
 
   function loadConfig() {
@@ -322,6 +423,7 @@
           prompts: { ...DEFAULT_CONFIG.prompts, ...(parsed.prompts || {}) },
           shortcuts: { ...DEFAULT_CONFIG.shortcuts, ...(parsed.shortcuts || {}) },
           openai_compat: { ...DEFAULT_CONFIG.openai_compat, ...(parsed.openai_compat || {}) },
+          feishu: { ...DEFAULT_CONFIG.feishu, ...(parsed.feishu || {}) },
         };
       }
     } catch (e) {
@@ -632,7 +734,9 @@
 
     if (!resp.ok) {
       var errText = await resp.text().catch(function () { return ""; });
-      throw new Error("API " + resp.status + ": " + errText.slice(0, 200));
+      var errMsg = "API " + resp.status + ": " + errText.slice(0, 200);
+      pluginLog("error", "Codex API: " + errMsg);
+      throw new Error(errMsg);
     }
 
     return await parseSSE(resp, config._onChunk);
@@ -738,7 +842,9 @@
 
     if (!resp.ok) {
       var errText = await resp.text().catch(function () { return ""; });
-      throw new Error("API " + resp.status + ": " + errText.slice(0, 200));
+      var errMsg = "API " + resp.status + ": " + errText.slice(0, 200);
+      pluginLog("error", "OpenAI API: " + errMsg);
+      throw new Error(errMsg);
     }
 
     return await parseOpenAISSE(resp, config._onChunk);
@@ -911,7 +1017,7 @@
     return results;
   }
 
-  // ===================== Editor helpers =====================
+  // ===================== Editor: Block Finding & Text =====================
 
   let savedSelection = null;
   let savedImage = null;
@@ -1067,6 +1173,8 @@
     } catch (_) {}
     return "";
   }
+
+  // ===================== Editor: Selection & Replace =====================
 
   function saveCurrentSelection(contextTarget) {
     var sel = window.getSelection();
@@ -1475,6 +1583,17 @@
       '<div class="ai-menu-item" data-action="settings">' +
       '<span class="ai-menu-icon">⚙</span>' + escHTML(L.aiEditSettings) + '</div>';
 
+    html += '<div class="ai-menu-sep"></div>';
+    html +=
+      '<div class="ai-menu-item" data-action="feishu_archive">' +
+      '<span class="ai-menu-icon">📤</span>' + escHTML(L.feishuArchive) + '</div>';
+    html +=
+      '<div class="ai-menu-item" data-action="feishu_docs">' +
+      '<span class="ai-menu-icon">📂</span>' + escHTML(L.feishuDocManager) + '</div>';
+    html +=
+      '<div class="ai-menu-item" data-action="view_log">' +
+      '<span class="ai-menu-icon">📋</span>' + escHTML(L.logMenu) + '</div>';
+
     return html;
   }
 
@@ -1559,6 +1678,7 @@
     } else if (action === "set-model") {
       cfg.model = item.dataset.model;
       saveConfig(cfg);
+      pluginLog("info", "Model switched: " + cfg.model);
       showToast(L.modelSwitched + cfg.model, "success");
     } else if (action === "toggle-web") {
       var mc = getModelCapabilities(cfg);
@@ -1571,6 +1691,12 @@
       showToast(cfg.web_search ? L.webSearchOn : L.webSearchOff, "success");
     } else if (action === "settings") {
       showSettingsPanel();
+    } else if (action === "feishu_archive") {
+      archiveToFeishu();
+    } else if (action === "feishu_docs") {
+      showFeishuDocManager();
+    } else if (action === "view_log") {
+      showLogPanel();
     }
   }
 
@@ -1787,8 +1913,8 @@
         if (e.name === "AbortError") {
           stream.showResult(L.confirmReplace);
         } else {
+          pluginLog("error", "Optimize failed: " + e.message);
           stream.showError(e.message);
-          console.error("[AI Edit]", e);
         }
       });
     }
@@ -1881,8 +2007,8 @@
           var insertBtn = '<button class="ai-btn primary" data-action="insert-img" style="margin-right:8px">' + escHTML(L.insertBtn) + '</button>';
           stream.showResult(L.copyBtn, insertBtn);
         } else {
+          pluginLog("error", "Image analysis failed: " + e.message);
           stream.showError(e.message);
-          console.error("[AI Edit]", e);
         }
       });
     }
@@ -2028,8 +2154,8 @@
             stream.showResult(L.confirmInsert);
           }
         } else {
+          pluginLog("error", "QA failed: " + e.message);
           stream.showError(e.message);
-          console.error("[AI Edit]", e);
         }
       });
     }
@@ -2074,7 +2200,7 @@
         showToast(L.insertFail, "error");
       }
     } catch (e) {
-      console.error("[AI Edit] insertQAResponse:", e);
+      pluginLog("error", "QA insert failed: " + e.message);
       writeToClipboard(text);
       showToast(L.insertFail, "error");
     }
@@ -2152,52 +2278,33 @@
 
       "<h4>" + escHTML(L.feat1) + "</h4>" +
       "<label>" + escHTML(L.sysPrompt) + "</label>" +
-      '<textarea id="ai-s-opt-sys" rows="3">' +
-      escHTML(cfg.prompts.optimize.system) +
-      "</textarea>" +
+      '<textarea id="ai-s-opt-sys" rows="3">' + escHTML(cfg.prompts.optimize.system) + "</textarea>" +
       "<label>" + escHTML(L.usrPrompt) + "</label>" +
-      '<textarea id="ai-s-opt-usr" rows="5">' +
-      escHTML(cfg.prompts.optimize.user) +
-      "</textarea>" +
+      '<textarea id="ai-s-opt-usr" rows="5">' + escHTML(cfg.prompts.optimize.user) + "</textarea>" +
       '<p class="ai-edit-hint">' + escHTML(L.varsSelection) + '</p>' +
       "<h4>" + escHTML(L.feat2) + "</h4>" +
       "<label>" + escHTML(L.sysPrompt) + "</label>" +
-      '<textarea id="ai-s-ctx-sys" rows="3">' +
-      escHTML(cfg.prompts.optimize_with_context.system) +
-      "</textarea>" +
+      '<textarea id="ai-s-ctx-sys" rows="3">' + escHTML(cfg.prompts.optimize_with_context.system) + "</textarea>" +
       "<label>" + escHTML(L.usrPrompt) + "</label>" +
-      '<textarea id="ai-s-ctx-usr" rows="5">' +
-      escHTML(cfg.prompts.optimize_with_context.user) +
-      "</textarea>" +
+      '<textarea id="ai-s-ctx-usr" rows="5">' + escHTML(cfg.prompts.optimize_with_context.user) + "</textarea>" +
       '<p class="ai-edit-hint">' + escHTML(L.varsSelDoc) + '</p>' +
       "<h4>" + escHTML(L.feat3) + "</h4>" +
       "<label>" + escHTML(L.sysPrompt) + "</label>" +
-      '<textarea id="ai-s-img-sys" rows="3">' +
-      escHTML(cfg.prompts.describe_image.system) +
-      "</textarea>" +
+      '<textarea id="ai-s-img-sys" rows="3">' + escHTML(cfg.prompts.describe_image.system) + "</textarea>" +
       "<label>" + escHTML(L.usrPrompt) + "</label>" +
-      '<textarea id="ai-s-img-usr" rows="3">' +
-      escHTML(cfg.prompts.describe_image.user) +
-      "</textarea>" +
+      '<textarea id="ai-s-img-usr" rows="3">' + escHTML(cfg.prompts.describe_image.user) + "</textarea>" +
       "<h4>" + escHTML(L.feat4) + "</h4>" +
       "<label>" + escHTML(L.sysPrompt) + "</label>" +
-      '<textarea id="ai-s-qa-sys" rows="3">' +
-      escHTML((cfg.prompts.qa || DEFAULT_CONFIG.prompts.qa).system) +
-      "</textarea>" +
+      '<textarea id="ai-s-qa-sys" rows="3">' + escHTML((cfg.prompts.qa || DEFAULT_CONFIG.prompts.qa).system) + "</textarea>" +
       "<label>" + escHTML(L.usrPrompt) + "</label>" +
-      '<textarea id="ai-s-qa-usr" rows="3">' +
-      escHTML((cfg.prompts.qa || DEFAULT_CONFIG.prompts.qa).user) +
-      "</textarea>" +
+      '<textarea id="ai-s-qa-usr" rows="3">' + escHTML((cfg.prompts.qa || DEFAULT_CONFIG.prompts.qa).user) + "</textarea>" +
       '<p class="ai-edit-hint">' + escHTML(isChinese ? "可用变量: {question}" : "Available variables: {question}") + '</p>' +
       "<label>" + escHTML(L.sysPrompt) + " (" + escHTML(L.qaIncludeDoc) + ")</label>" +
-      '<textarea id="ai-s-qac-sys" rows="3">' +
-      escHTML((cfg.prompts.qa_with_context || DEFAULT_CONFIG.prompts.qa_with_context).system) +
-      "</textarea>" +
+      '<textarea id="ai-s-qac-sys" rows="3">' + escHTML((cfg.prompts.qa_with_context || DEFAULT_CONFIG.prompts.qa_with_context).system) + "</textarea>" +
       "<label>" + escHTML(L.usrPrompt) + "</label>" +
-      '<textarea id="ai-s-qac-usr" rows="5">' +
-      escHTML((cfg.prompts.qa_with_context || DEFAULT_CONFIG.prompts.qa_with_context).user) +
-      "</textarea>" +
+      '<textarea id="ai-s-qac-usr" rows="5">' + escHTML((cfg.prompts.qa_with_context || DEFAULT_CONFIG.prompts.qa_with_context).user) + "</textarea>" +
       '<p class="ai-edit-hint">' + escHTML(isChinese ? "可用变量: {question}, {document}" : "Available variables: {question}, {document}") + '</p>' +
+
       '<div class="ai-menu-sep" style="margin:16px 0"></div>' +
       "<h4>" + escHTML(L.shortcutLabel) + "</h4>" +
       '<p class="ai-edit-hint">' + escHTML(L.shortcutHint) + '</p>' +
@@ -2206,6 +2313,20 @@
       '<input type="text" id="ai-s-sc-qa" class="ai-shortcut-input" readonly value="' +
       shortcutDisplay(cfg.shortcuts.qa) + '" />' +
       "</div>" +
+
+      '<div class="ai-menu-sep" style="margin:16px 0"></div>' +
+      "<h4>" + escHTML(L.feishuSection) + "</h4>" +
+      "<label>" + escHTML(L.feishuAppId) + "</label>" +
+      '<input type="text" id="ai-s-feishu-appid" class="ai-text-input" placeholder="cli_xxxxxxxxxxxxx" value="' +
+      escHTML(cfg.feishu.app_id || "") + '" />' +
+      "<label>" + escHTML(L.feishuAppSecret) + "</label>" +
+      '<input type="password" id="ai-s-feishu-secret" class="ai-text-input" value="' +
+      escHTML(cfg.feishu.app_secret || "") + '" />' +
+      "<label>" + escHTML(L.feishuTargetFolder) + "</label>" +
+      '<input type="text" id="ai-s-feishu-folder" class="ai-text-input" value="' +
+      escHTML(cfg.feishu.target_folder || "") + '" />' +
+      '<p class="ai-edit-hint">' + escHTML(L.feishuFolderHint) + '</p>' +
+
       "</div>" +
       '<div class="ai-edit-panel-footer">' +
       '<button class="ai-btn secondary" data-action="reset">' + escHTML(L.resetDefaults) + '</button>' +
@@ -2234,165 +2355,170 @@
       if (act === "close") {
         overlay.remove();
       } else if (act === "test-models") {
-        var testUrl = document.getElementById("ai-s-oc-url").value.trim();
-        var testKey = document.getElementById("ai-s-oc-key").value.trim();
-        var testInput = document.getElementById("ai-s-oc-models").value.trim();
-        var modelsInputEl = document.getElementById("ai-s-oc-models");
-        if (!testUrl || !testKey) {
-          showToast(L.testMissingFields, "error", 3000);
-          return;
-        }
-        btn.disabled = true;
-        btn.style.opacity = ".5";
-        var logEl = document.getElementById("ai-test-log");
-        if (logEl) {
-          logEl.style.display = "block";
-          logEl.textContent = "";
-        }
-        function appendLog(msg) {
-          if (!logEl) return;
-          logEl.textContent += msg + "\n";
-          logEl.scrollTop = logEl.scrollHeight;
-        }
-        (async function () {
-          var names;
-          if (testInput) {
-            names = testInput.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
-          } else {
-            appendLog(L.testLogAutoFetch);
-            try {
-              var mResp = await fetch(testUrl.replace(/\/+$/, "") + "/models", {
-                headers: { Authorization: "Bearer " + testKey },
-              });
-              if (mResp.ok) {
-                var mData = await mResp.json();
-                if (mData.data && mData.data.length > 0) {
-                  names = mData.data.map(function (m) { return m.id; });
-                  appendLog(L.testLogAutoFetchOk.replace("{count}", names.length));
-                  var autoInput = names.join(", ");
-                  modelsInputEl.value = autoInput;
-                  testInput = autoInput;
-                } else {
-                  appendLog(L.testLogAutoFetchFail);
-                  btn.disabled = false;
-                  btn.style.opacity = "1";
-                  return;
-                }
-              } else {
-                appendLog(L.testLogAutoFetchFail + " (HTTP " + mResp.status + ")");
-                btn.disabled = false;
-                btn.style.opacity = "1";
-                return;
-              }
-            } catch (fetchErr) {
-              appendLog(L.testLogAutoFetchFail + " (" + fetchErr.message + ")");
-              btn.disabled = false;
-              btn.style.opacity = "1";
-              return;
-            }
-          }
-          try {
-            var results = await testOpenAIModels(testUrl, testKey, names, appendLog);
-            cfg.openai_compat.base_url = testUrl;
-            cfg.openai_compat.api_key = testKey;
-            cfg.openai_compat.models_input = testInput;
-            cfg.openai_compat.models = results;
-            var avail = results.filter(function (r) { return r.available; });
-            if (avail.length > 0) {
-              cfg.provider = "openai_compat";
-              cfg.model = avail[0].name;
-              appendLog("\n" + L.testLogComplete.replace("{count}", avail.length));
-            } else {
-              appendLog("\n" + L.allUnavailable);
-            }
-            saveConfig(cfg);
-            btn.disabled = false;
-            btn.style.opacity = "1";
-            var oldOcModels = overlay.querySelector(".ai-edit-hint");
-            if (oldOcModels) oldOcModels.remove();
-            var newHtml = "";
-            for (var ri = 0; ri < results.length; ri++) {
-              var rm = results[ri];
-              var rbadge = rm.available ? "\u2713" : "\u2717";
-              var rws = rm.web_search ? " \uD83C\uDF10" : "";
-              var rvs = rm.vision ? " \uD83D\uDDBC" : "";
-              newHtml += '<div style="font-size:12px;margin:2px 0;color:' +
-                (rm.available ? "#0d904f" : "#d93025") + '">' +
-                rbadge + " " + escHTML(rm.name) + rws + rvs + "</div>";
-            }
-            if (newHtml) {
-              var hintDiv = document.createElement("div");
-              hintDiv.className = "ai-edit-hint";
-              hintDiv.style.marginTop = "8px";
-              hintDiv.innerHTML = newHtml;
-              logEl.parentNode.insertBefore(hintDiv, logEl.nextSibling);
-            }
-          } catch (err) {
-            appendLog("\n\u2717 " + L.allUnavailable + " (" + err.message + ")");
-            btn.disabled = false;
-            btn.style.opacity = "1";
-          }
-        })();
-        return;
+        settingsHandleTestModels(cfg, btn, overlay);
       } else if (act === "save") {
-        cfg.provider = document.getElementById("ai-s-provider").value;
-        if (cfg.provider === "openai_compat") {
-          cfg.openai_compat.base_url = document.getElementById("ai-s-oc-url").value.trim();
-          cfg.openai_compat.api_key = document.getElementById("ai-s-oc-key").value.trim();
-          cfg.openai_compat.models_input = document.getElementById("ai-s-oc-models").value.trim();
-        }
-        cfg.prompts.optimize.system =
-          document.getElementById("ai-s-opt-sys").value;
-        cfg.prompts.optimize.user =
-          document.getElementById("ai-s-opt-usr").value;
-        cfg.prompts.optimize_with_context.system =
-          document.getElementById("ai-s-ctx-sys").value;
-        cfg.prompts.optimize_with_context.user =
-          document.getElementById("ai-s-ctx-usr").value;
-        cfg.prompts.describe_image.system =
-          document.getElementById("ai-s-img-sys").value;
-        cfg.prompts.describe_image.user =
-          document.getElementById("ai-s-img-usr").value;
-        if (!cfg.prompts.qa) cfg.prompts.qa = {};
-        cfg.prompts.qa.system = document.getElementById("ai-s-qa-sys").value;
-        cfg.prompts.qa.user = document.getElementById("ai-s-qa-usr").value;
-        if (!cfg.prompts.qa_with_context) cfg.prompts.qa_with_context = {};
-        cfg.prompts.qa_with_context.system = document.getElementById("ai-s-qac-sys").value;
-        cfg.prompts.qa_with_context.user = document.getElementById("ai-s-qac-usr").value;
-        var scQa = document.getElementById("ai-s-sc-qa")._shortcut;
-        if (scQa) cfg.shortcuts.qa = scQa;
-        saveConfig(cfg);
-        overlay.remove();
-        showToast(L.saved, "success");
+        settingsHandleSave(cfg, overlay);
       } else if (act === "reset") {
-        document.getElementById("ai-s-opt-sys").value =
-          DEFAULT_CONFIG.prompts.optimize.system;
-        document.getElementById("ai-s-opt-usr").value =
-          DEFAULT_CONFIG.prompts.optimize.user;
-        document.getElementById("ai-s-ctx-sys").value =
-          DEFAULT_CONFIG.prompts.optimize_with_context.system;
-        document.getElementById("ai-s-ctx-usr").value =
-          DEFAULT_CONFIG.prompts.optimize_with_context.user;
-        document.getElementById("ai-s-img-sys").value =
-          DEFAULT_CONFIG.prompts.describe_image.system;
-        document.getElementById("ai-s-img-usr").value =
-          DEFAULT_CONFIG.prompts.describe_image.user;
-        document.getElementById("ai-s-qa-sys").value =
-          DEFAULT_CONFIG.prompts.qa.system;
-        document.getElementById("ai-s-qa-usr").value =
-          DEFAULT_CONFIG.prompts.qa.user;
-        document.getElementById("ai-s-qac-sys").value =
-          DEFAULT_CONFIG.prompts.qa_with_context.system;
-        document.getElementById("ai-s-qac-usr").value =
-          DEFAULT_CONFIG.prompts.qa_with_context.user;
-        var defQa = DEFAULT_CONFIG.shortcuts.qa;
-        document.getElementById("ai-s-sc-qa").value = shortcutDisplay(defQa);
-        document.getElementById("ai-s-sc-qa")._shortcut = defQa;
-        showToast(L.restored, "info");
+        settingsHandleReset();
       }
     });
 
     initShortcutRecorder("ai-s-sc-qa", cfg.shortcuts.qa);
+  }
+
+  // ===================== Settings: Save / Reset / Test =====================
+
+  function settingsHandleSave(cfg, overlay) {
+    cfg.provider = document.getElementById("ai-s-provider").value;
+    if (cfg.provider === "openai_compat") {
+      cfg.openai_compat.base_url = document.getElementById("ai-s-oc-url").value.trim();
+      cfg.openai_compat.api_key = document.getElementById("ai-s-oc-key").value.trim();
+      cfg.openai_compat.models_input = document.getElementById("ai-s-oc-models").value.trim();
+    }
+    cfg.prompts.optimize.system = document.getElementById("ai-s-opt-sys").value;
+    cfg.prompts.optimize.user = document.getElementById("ai-s-opt-usr").value;
+    cfg.prompts.optimize_with_context.system = document.getElementById("ai-s-ctx-sys").value;
+    cfg.prompts.optimize_with_context.user = document.getElementById("ai-s-ctx-usr").value;
+    cfg.prompts.describe_image.system = document.getElementById("ai-s-img-sys").value;
+    cfg.prompts.describe_image.user = document.getElementById("ai-s-img-usr").value;
+    if (!cfg.prompts.qa) cfg.prompts.qa = {};
+    cfg.prompts.qa.system = document.getElementById("ai-s-qa-sys").value;
+    cfg.prompts.qa.user = document.getElementById("ai-s-qa-usr").value;
+    if (!cfg.prompts.qa_with_context) cfg.prompts.qa_with_context = {};
+    cfg.prompts.qa_with_context.system = document.getElementById("ai-s-qac-sys").value;
+    cfg.prompts.qa_with_context.user = document.getElementById("ai-s-qac-usr").value;
+    var scQa = document.getElementById("ai-s-sc-qa")._shortcut;
+    if (scQa) cfg.shortcuts.qa = scQa;
+    cfg.feishu = cfg.feishu || {};
+    cfg.feishu.app_id = document.getElementById("ai-s-feishu-appid").value.trim();
+    cfg.feishu.app_secret = document.getElementById("ai-s-feishu-secret").value.trim();
+    cfg.feishu.target_folder = document.getElementById("ai-s-feishu-folder").value.trim();
+    saveConfig(cfg);
+    pluginLog("info", "Settings saved");
+    overlay.remove();
+    showToast(L.saved, "success");
+  }
+
+  function settingsHandleReset() {
+    document.getElementById("ai-s-opt-sys").value = DEFAULT_CONFIG.prompts.optimize.system;
+    document.getElementById("ai-s-opt-usr").value = DEFAULT_CONFIG.prompts.optimize.user;
+    document.getElementById("ai-s-ctx-sys").value = DEFAULT_CONFIG.prompts.optimize_with_context.system;
+    document.getElementById("ai-s-ctx-usr").value = DEFAULT_CONFIG.prompts.optimize_with_context.user;
+    document.getElementById("ai-s-img-sys").value = DEFAULT_CONFIG.prompts.describe_image.system;
+    document.getElementById("ai-s-img-usr").value = DEFAULT_CONFIG.prompts.describe_image.user;
+    document.getElementById("ai-s-qa-sys").value = DEFAULT_CONFIG.prompts.qa.system;
+    document.getElementById("ai-s-qa-usr").value = DEFAULT_CONFIG.prompts.qa.user;
+    document.getElementById("ai-s-qac-sys").value = DEFAULT_CONFIG.prompts.qa_with_context.system;
+    document.getElementById("ai-s-qac-usr").value = DEFAULT_CONFIG.prompts.qa_with_context.user;
+    var defQa = DEFAULT_CONFIG.shortcuts.qa;
+    document.getElementById("ai-s-sc-qa").value = shortcutDisplay(defQa);
+    document.getElementById("ai-s-sc-qa")._shortcut = defQa;
+    document.getElementById("ai-s-feishu-appid").value = "";
+    document.getElementById("ai-s-feishu-secret").value = "";
+    document.getElementById("ai-s-feishu-folder").value = "";
+    showToast(L.restored, "info");
+  }
+
+  function settingsHandleTestModels(cfg, btn, overlay) {
+    var testUrl = document.getElementById("ai-s-oc-url").value.trim();
+    var testKey = document.getElementById("ai-s-oc-key").value.trim();
+    var testInput = document.getElementById("ai-s-oc-models").value.trim();
+    var modelsInputEl = document.getElementById("ai-s-oc-models");
+    if (!testUrl || !testKey) {
+      showToast(L.testMissingFields, "error", 3000);
+      return;
+    }
+    btn.disabled = true;
+    btn.style.opacity = ".5";
+    var logEl = document.getElementById("ai-test-log");
+    if (logEl) {
+      logEl.style.display = "block";
+      logEl.textContent = "";
+    }
+    function appendLog(msg) {
+      if (!logEl) return;
+      logEl.textContent += msg + "\n";
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    (async function () {
+      var names;
+      if (testInput) {
+        names = testInput.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+      } else {
+        appendLog(L.testLogAutoFetch);
+        try {
+          var mResp = await fetch(testUrl.replace(/\/+$/, "") + "/models", {
+            headers: { Authorization: "Bearer " + testKey },
+          });
+          if (mResp.ok) {
+            var mData = await mResp.json();
+            if (mData.data && mData.data.length > 0) {
+              names = mData.data.map(function (m) { return m.id; });
+              appendLog(L.testLogAutoFetchOk.replace("{count}", names.length));
+              var autoInput = names.join(", ");
+              modelsInputEl.value = autoInput;
+              testInput = autoInput;
+            } else {
+              appendLog(L.testLogAutoFetchFail);
+              btn.disabled = false;
+              btn.style.opacity = "1";
+              return;
+            }
+          } else {
+            appendLog(L.testLogAutoFetchFail + " (HTTP " + mResp.status + ")");
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            return;
+          }
+        } catch (fetchErr) {
+          appendLog(L.testLogAutoFetchFail + " (" + fetchErr.message + ")");
+          btn.disabled = false;
+          btn.style.opacity = "1";
+          return;
+        }
+      }
+      try {
+        var results = await testOpenAIModels(testUrl, testKey, names, appendLog);
+        cfg.openai_compat.base_url = testUrl;
+        cfg.openai_compat.api_key = testKey;
+        cfg.openai_compat.models_input = testInput;
+        cfg.openai_compat.models = results;
+        var avail = results.filter(function (r) { return r.available; });
+        if (avail.length > 0) {
+          cfg.provider = "openai_compat";
+          cfg.model = avail[0].name;
+          appendLog("\n" + L.testLogComplete.replace("{count}", avail.length));
+        } else {
+          appendLog("\n" + L.allUnavailable);
+        }
+        saveConfig(cfg);
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        var oldOcModels = overlay.querySelector(".ai-edit-hint");
+        if (oldOcModels) oldOcModels.remove();
+        var newHtml = "";
+        for (var ri = 0; ri < results.length; ri++) {
+          var rm = results[ri];
+          var rbadge = rm.available ? "\u2713" : "\u2717";
+          var rws = rm.web_search ? " \uD83C\uDF10" : "";
+          var rvs = rm.vision ? " \uD83D\uDDBC" : "";
+          newHtml += '<div style="font-size:12px;margin:2px 0;color:' +
+            (rm.available ? "#0d904f" : "#d93025") + '">' +
+            rbadge + " " + escHTML(rm.name) + rws + rvs + "</div>";
+        }
+        if (newHtml) {
+          var hintDiv = document.createElement("div");
+          hintDiv.className = "ai-edit-hint";
+          hintDiv.style.marginTop = "8px";
+          hintDiv.innerHTML = newHtml;
+          logEl.parentNode.insertBefore(hintDiv, logEl.nextSibling);
+        }
+      } catch (err) {
+        appendLog("\n\u2717 " + L.allUnavailable + " (" + err.message + ")");
+        btn.disabled = false;
+        btn.style.opacity = "1";
+      }
+    })();
   }
 
   // ===================== Styles =====================
@@ -2532,6 +2658,139 @@
       ".ai-text-input:focus{border-color:#4a9eff}",
       "#ai-test-log{background:#1e1e1e !important;border-color:#555 !important;color:#ccc !important}",
       "}",
+
+      /* Feishu progress overlay */
+      ".ai-feishu-progress{position:fixed;top:0;left:0;width:100%;height:100%;",
+      "background:rgba(0,0,0,.4);z-index:999997;display:flex;align-items:center;justify-content:center;",
+      "opacity:0;transition:opacity .3s}",
+      ".ai-feishu-progress.show{opacity:1}",
+      ".ai-feishu-progress-inner{background:#fff;border-radius:16px;padding:32px 40px;",
+      "min-width:360px;box-shadow:0 16px 48px rgba(0,0,0,.2);",
+      "font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center}",
+      ".ai-feishu-title{font-size:16px;font-weight:600;margin-bottom:24px;color:#333}",
+      ".ai-feishu-steps{display:flex;flex-direction:column;gap:12px;text-align:left;margin-bottom:20px}",
+      ".ai-feishu-step{display:flex;align-items:center;gap:10px;font-size:13px;color:#999;transition:color .3s}",
+      ".ai-feishu-step.active{color:#1a73e8;font-weight:500}",
+      ".ai-feishu-step.done{color:#0d904f}",
+      ".ai-feishu-step-dot{width:18px;height:18px;border-radius:50%;border:2px solid #ddd;",
+      "display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .3s;font-size:10px}",
+      ".ai-feishu-step.active .ai-feishu-step-dot{border-color:#1a73e8;",
+      "animation:ai-spin 0.8s linear infinite;border-top-color:transparent}",
+      ".ai-feishu-step.done .ai-feishu-step-dot{border-color:#0d904f;background:#0d904f;color:#fff}",
+      ".ai-feishu-step.done .ai-feishu-step-dot::after{content:'✓'}",
+      ".ai-feishu-status{font-size:12px;color:#888;margin-top:4px}",
+
+      /* Feishu success overlay */
+      ".ai-feishu-success{position:fixed;top:0;left:0;width:100%;height:100%;",
+      "background:rgba(0,0,0,.4);z-index:999997;display:flex;align-items:center;justify-content:center;",
+      "opacity:0;transition:opacity .3s}",
+      ".ai-feishu-success.show{opacity:1}",
+      ".ai-feishu-success-inner{background:#fff;border-radius:16px;padding:32px 40px;",
+      "min-width:360px;box-shadow:0 16px 48px rgba(0,0,0,.2);",
+      "font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center}",
+      ".ai-feishu-success-icon{width:48px;height:48px;border-radius:50%;background:#0d904f;",
+      "color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}",
+      ".ai-feishu-success-title{font-size:18px;font-weight:600;color:#333;margin-bottom:8px}",
+      ".ai-feishu-success-doc{font-size:14px;color:#666;margin-bottom:16px}",
+      ".ai-feishu-success-link{display:inline-block;color:#1a73e8;font-size:14px;font-weight:500;",
+      "text-decoration:none;margin-bottom:20px}",
+      ".ai-feishu-success-link:hover{text-decoration:underline}",
+      ".ai-feishu-success-actions{display:flex;gap:8px;justify-content:center}",
+      ".ai-feishu-btn-copy{padding:8px 20px;border-radius:8px;font-size:13px;cursor:pointer;",
+      "border:1px solid #ddd;background:#f8f8f8;color:#333;font-weight:500;transition:background .15s}",
+      ".ai-feishu-btn-copy:hover{background:#eee}",
+      ".ai-feishu-btn-close{padding:8px 20px;border-radius:8px;font-size:13px;cursor:pointer;",
+      "border:none;background:#1a73e8;color:#fff;font-weight:500;transition:background .15s}",
+      ".ai-feishu-btn-close:hover{background:#1557b0}",
+
+      /* Log panel */
+      ".ai-log-panel{width:620px;max-height:85vh}",
+      ".ai-log-body{padding:0 !important}",
+      ".ai-log-list{font-family:SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;",
+      "line-height:1.6;max-height:60vh;overflow-y:auto;padding:12px 16px}",
+      ".ai-log-entry{display:flex;align-items:flex-start;gap:8px;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.04)}",
+      ".ai-log-time{color:#999;flex-shrink:0;font-size:11px;min-width:56px}",
+      ".ai-log-level{flex-shrink:0;font-size:10px;font-weight:600;min-width:42px;text-align:center;",
+      "padding:1px 4px;border-radius:3px}",
+      ".ai-log-info .ai-log-level{color:#1a73e8;background:rgba(26,115,232,.08)}",
+      ".ai-log-warn .ai-log-level{color:#e37400;background:rgba(227,116,0,.08)}",
+      ".ai-log-error .ai-log-level{color:#d93025;background:rgba(217,48,37,.08)}",
+      ".ai-log-msg{flex:1;word-break:break-all;color:#333}",
+      ".ai-log-empty{text-align:center;color:#999;padding:40px 20px;font-size:14px;",
+      "font-family:-apple-system,BlinkMacSystemFont,sans-serif}",
+
+      /* Feishu Doc Manager */
+      ".ai-docmgr-panel{width:600px;max-height:80vh}",
+      ".ai-docmgr-body{padding:0 !important}",
+      ".ai-docmgr-empty{text-align:center;color:#999;padding:48px 20px;font-size:14px;",
+      "font-family:-apple-system,BlinkMacSystemFont,sans-serif}",
+      ".ai-docmgr-list{max-height:60vh;overflow-y:auto}",
+      ".ai-docmgr-item{display:flex;align-items:center;padding:12px 20px;gap:12px;",
+      "border-bottom:1px solid rgba(0,0,0,.06);transition:background .15s}",
+      ".ai-docmgr-item:hover{background:rgba(0,0,0,.02)}",
+      ".ai-docmgr-item:last-child{border-bottom:none}",
+      ".ai-docmgr-item-main{flex:1;min-width:0}",
+      ".ai-docmgr-item-title{font-size:14px;font-weight:500;margin-bottom:4px;",
+      "white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+      ".ai-docmgr-link{color:#1a73e8;text-decoration:none;transition:color .15s}",
+      ".ai-docmgr-link:hover{color:#1557b0;text-decoration:underline}",
+      ".ai-docmgr-item-meta{display:flex;gap:12px;font-size:11px;color:#999}",
+      ".ai-docmgr-time{flex-shrink:0}",
+      ".ai-docmgr-local{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;",
+      "max-width:240px;color:#bbb}",
+      ".ai-docmgr-del{flex-shrink:0;padding:4px 12px;border-radius:6px;font-size:12px;",
+      "cursor:pointer;border:1px solid #e0e0e0;background:#fff;color:#d93025;font-weight:500;",
+      "transition:all .15s;white-space:nowrap}",
+      ".ai-docmgr-del:hover{background:#fce8e6;border-color:#f5c6c2}",
+      ".ai-docmgr-del:disabled{opacity:.5;cursor:default;pointer-events:none}",
+      ".ai-docmgr-search{padding:12px 20px 0;border-bottom:1px solid rgba(0,0,0,.06)}",
+      ".ai-docmgr-search-input{width:100%;box-sizing:border-box;padding:8px 12px;",
+      "border:1px solid #ddd;border-radius:8px;font-size:13px;outline:none;",
+      "font-family:-apple-system,BlinkMacSystemFont,sans-serif;transition:border-color .2s;margin-bottom:12px}",
+      ".ai-docmgr-search-input:focus{border-color:#1a73e8}",
+      ".ai-docmgr-status{padding:8px 20px 4px;font-size:11px;color:#999}",
+      ".ai-docmgr-badge{font-size:10px;padding:1px 6px;border-radius:4px;margin-left:8px;",
+      "font-weight:500;vertical-align:middle}",
+      ".ai-docmgr-badge-title{color:#1a73e8;background:rgba(26,115,232,.08)}",
+      ".ai-docmgr-badge-content{color:#e37400;background:rgba(227,116,0,.08)}",
+      ".ai-docmgr-pager{display:flex;align-items:center;justify-content:center;gap:12px;",
+      "padding:12px 20px;border-top:1px solid rgba(0,0,0,.06)}",
+      ".ai-docmgr-pager-btn{padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;",
+      "border:1px solid #ddd;background:#fff;color:#333;font-weight:500;transition:all .15s}",
+      ".ai-docmgr-pager-btn:hover:not(:disabled){background:#f1f3f4}",
+      ".ai-docmgr-pager-btn:disabled{opacity:.4;cursor:default}",
+      ".ai-docmgr-pager-info{font-size:12px;color:#999}",
+
+      /* Dark Feishu */
+      "@media(prefers-color-scheme:dark){",
+      ".ai-feishu-progress-inner{background:#2a2a2a;color:#ddd}",
+      ".ai-feishu-title{color:#eee}",
+      ".ai-feishu-step-dot{border-color:#555}",
+      ".ai-feishu-status{color:#888}",
+      ".ai-feishu-success-inner{background:#2a2a2a;color:#ddd}",
+      ".ai-feishu-success-title{color:#eee}",
+      ".ai-feishu-success-doc{color:#aaa}",
+      ".ai-feishu-success-link{color:#4a9eff}",
+      ".ai-feishu-btn-copy{background:#444;border-color:#555;color:#ddd}",
+      ".ai-feishu-btn-copy:hover{background:#555}",
+      ".ai-log-entry{border-color:rgba(255,255,255,.06)}",
+      ".ai-log-msg{color:#ccc}",
+      ".ai-log-empty{color:#777}",
+      ".ai-docmgr-item{border-color:rgba(255,255,255,.08)}",
+      ".ai-docmgr-item:hover{background:rgba(255,255,255,.04)}",
+      ".ai-docmgr-link{color:#4a9eff}",
+      ".ai-docmgr-link:hover{color:#7ab8ff}",
+      ".ai-docmgr-local{color:#666}",
+      ".ai-docmgr-empty{color:#777}",
+      ".ai-docmgr-del{background:#3a3a3a;border-color:#555;color:#f28b82}",
+      ".ai-docmgr-del:hover{background:#4a2a2a;border-color:#f28b82}",
+      ".ai-docmgr-search{border-color:rgba(255,255,255,.08)}",
+      ".ai-docmgr-search-input{background:#333;border-color:#555;color:#ddd}",
+      ".ai-docmgr-search-input:focus{border-color:#4a9eff}",
+      ".ai-docmgr-pager{border-color:rgba(255,255,255,.08)}",
+      ".ai-docmgr-pager-btn{background:#3a3a3a;border-color:#555;color:#ddd}",
+      ".ai-docmgr-pager-btn:hover:not(:disabled){background:#444}",
+      "}",
     ].join("\n");
     document.head.appendChild(css);
   }
@@ -2608,7 +2867,7 @@
       }
     }, true);
 
-    console.log("[AI Edit] " + L.loaded);
+    pluginLog("info", L.loaded);
   }
 
   if (document.readyState === "complete" || document.readyState === "interactive") {
@@ -2617,6 +2876,910 @@
     window.addEventListener("DOMContentLoaded", function () {
       setTimeout(init, 500);
     });
+  }
+
+  // ===================== Feishu: Core & API =====================
+
+  const FEISHU_API = "https://open.feishu.cn/open-apis";
+  const FEISHU_SESSION_KEY = "typora-ai-edit-feishu-sessions";
+
+  var feishuTokenCache = { token: null, expiresAt: 0 };
+
+  // ===================== Credentials =====================
+
+  function loadFeishuCredentials() {
+    var cfg = loadConfig();
+    if (cfg.feishu && cfg.feishu.app_id && cfg.feishu.app_secret) {
+      return { app_id: cfg.feishu.app_id, app_secret: cfg.feishu.app_secret };
+    }
+
+    var candidates = [];
+    var filePath = (window.File && window.File.filePath) || "";
+    if (filePath) {
+      var idx = filePath.lastIndexOf("/");
+      candidates.push((idx > 0 ? filePath.slice(0, idx) : ".") + "/feishu-credentials.json");
+    }
+    var home = getHomePath();
+    if (home) {
+      candidates.push(home + "/.feishu-credentials.json");
+    }
+
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        var raw = readFileContent(candidates[i]);
+        if (raw) {
+          var creds = JSON.parse(raw);
+          if (creds.app_id && creds.app_secret) {
+            pluginLog("info", "Feishu credentials loaded from: " + candidates[i]);
+            return creds;
+          }
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  // ===================== Auth =====================
+
+  async function getFeishuTenantToken() {
+    if (feishuTokenCache.token && Date.now() < feishuTokenCache.expiresAt) {
+      return feishuTokenCache.token;
+    }
+
+    var creds = loadFeishuCredentials();
+    if (!creds) throw new Error(L.feishuNoCreds);
+
+    var resp = await fetch(FEISHU_API + "/auth/v3/tenant_access_token/internal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ app_id: creds.app_id, app_secret: creds.app_secret }),
+    });
+
+    var data = await resp.json();
+    if (data.code !== 0) throw new Error("Feishu auth failed: " + data.msg);
+
+    feishuTokenCache.token = data.tenant_access_token;
+    feishuTokenCache.expiresAt = Date.now() + (data.expire - 300) * 1000;
+    return data.tenant_access_token;
+  }
+
+  // ===================== Session management =====================
+
+  function loadFeishuSessions() {
+    try {
+      var raw = localStorage.getItem(FEISHU_SESSION_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (_) { return {}; }
+  }
+
+  function saveFeishuSessions(sessions) {
+    localStorage.setItem(FEISHU_SESSION_KEY, JSON.stringify(sessions));
+  }
+
+  function getFeishuSession(fp) {
+    return loadFeishuSessions()[fp] || null;
+  }
+
+  function setFeishuSession(fp, session) {
+    var sessions = loadFeishuSessions();
+    sessions[fp] = session;
+    saveFeishuSessions(sessions);
+  }
+
+  // ===================== DOCX conversion (in-memory) =====================
+
+  function convertToDocxBlob(mdContent) {
+    return markdownToDocxBlob(mdContent);
+  }
+
+  // ===================== Feishu API calls =====================
+
+  async function feishuUploadBlob(token, blob, fileName) {
+    var fileSize = blob.size;
+    if (fileSize > 20 * 1024 * 1024) throw new Error(L.feishuFileTooLarge);
+
+    var formData = new FormData();
+    formData.append("file_name", fileName);
+    formData.append("parent_type", "ccm_import_open");
+    formData.append("size", String(fileSize));
+    formData.append("extra", JSON.stringify({ obj_type: "docx", file_extension: "docx" }));
+    formData.append("file", blob, fileName);
+
+    var resp = await fetch(FEISHU_API + "/drive/v1/medias/upload_all", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token },
+      body: formData,
+    });
+
+    var data = await resp.json();
+    if (data.code !== 0) throw new Error("Upload failed (" + data.code + "): " + data.msg);
+    return data.data.file_token;
+  }
+
+  async function feishuCreateImportTask(token, fileToken, title, folderToken) {
+    var body = {
+      file_extension: "docx",
+      file_token: fileToken,
+      type: "docx",
+      file_name: title,
+      point: { mount_type: 1, mount_key: folderToken || "" },
+    };
+
+    var resp = await fetch(FEISHU_API + "/drive/v1/import_tasks", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    var data = await resp.json();
+    if (data.code !== 0) throw new Error("Import task failed (" + data.code + "): " + data.msg);
+    return data.data.ticket;
+  }
+
+  async function feishuPollImportResult(token, ticket) {
+    var maxAttempts = 30;
+    for (var i = 0; i < maxAttempts; i++) {
+      await sleep(2000);
+      var resp = await fetch(FEISHU_API + "/drive/v1/import_tasks/" + ticket, {
+        method: "GET",
+        headers: { Authorization: "Bearer " + token },
+      });
+
+      var data = await resp.json();
+      if (data.code !== 0) throw new Error("Poll failed (" + data.code + "): " + data.msg);
+
+      var result = data.data && data.data.result;
+      if (result && result.job_status === 0) {
+        return { token: result.token, url: result.url, type: result.type };
+      }
+      if (result && result.job_status === 2) {
+        throw new Error("Import failed: " + (result.job_error_msg || "unknown error"));
+      }
+    }
+    throw new Error(L.feishuTimeout);
+  }
+
+  async function feishuDeleteDoc(token, docToken) {
+    try {
+      var resp = await fetch(FEISHU_API + "/drive/v1/files/" + docToken + "?type=docx", {
+        method: "DELETE",
+        headers: { Authorization: "Bearer " + token },
+      });
+      var data = await resp.json();
+      if (data.code === 0) pluginLog("info", "Feishu old doc deleted: " + docToken);
+      else pluginLog("warn", "Feishu delete failed: " + data.code + " " + data.msg);
+    } catch (e) {
+      pluginLog("warn", "Feishu delete error: " + e.message);
+    }
+  }
+
+  // ===================== Feishu: Title & Utility =====================
+
+  async function generateTitle(docContent, cfg) {
+    var sysPrompt = isChinese
+      ? "你是一位标题生成助手。请根据文档内容生成一个简洁、准确的标题。只返回标题本身，不要任何解释、引号或标点。最长20个字。"
+      : "You are a title generator. Generate a concise, accurate title for the document. Return only the title itself, no quotes, explanations, or punctuation. Max 15 words.";
+    var userPrompt = docContent.slice(0, 3000);
+
+    var title = await callAPI(sysPrompt, userPrompt, { ...cfg, _onChunk: null, web_search: false });
+    title = title.replace(/^["'"""'']+|["'"""'']+$/g, "").trim();
+    if (!title) title = isChinese ? "未命名文档" : "Untitled Document";
+    if (title.length > 60) title = title.slice(0, 60);
+    return title;
+  }
+
+  function simpleHash(str) {
+    var hash = 0;
+    for (var i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  // ===================== Feishu: Archive Flow & UI =====================
+
+  async function archiveToFeishu() {
+    var docContent = getDocumentText();
+    if (!docContent || !docContent.trim()) {
+      showToast(L.feishuNoContent, "error");
+      return;
+    }
+
+    var creds = loadFeishuCredentials();
+    if (!creds) {
+      showToast(L.feishuNoCreds, "error", 5000);
+      return;
+    }
+
+    var cfg = loadConfig();
+    var filePath = (window.File && window.File.filePath) || null;
+    var sessionKey = filePath || ("unsaved-" + simpleHash(docContent.slice(0, 200)));
+    var progressEl = showFeishuProgress();
+
+    try {
+      updateFeishuProgress(progressEl, L.feishuStepTitle, 1);
+      var title = await generateTitle(docContent, cfg);
+      pluginLog("info", "Feishu: title generated: " + title);
+
+      updateFeishuProgress(progressEl, L.feishuStepConvert, 2);
+      var docxBlob = convertToDocxBlob(docContent);
+      pluginLog("info", "Feishu: DOCX blob created: " + docxBlob.size + " bytes");
+
+      updateFeishuProgress(progressEl, L.feishuStepAuth, 3);
+      var token = await getFeishuTenantToken();
+
+      var session = getFeishuSession(sessionKey);
+      if (session && session.feishu_doc_token) {
+        updateFeishuProgress(progressEl, L.feishuStepDelete, 3);
+        await feishuDeleteDoc(token, session.feishu_doc_token);
+      }
+
+      updateFeishuProgress(progressEl, L.feishuStepUpload, 4);
+      var fileToken = await feishuUploadBlob(token, docxBlob, title + ".docx");
+      pluginLog("info", "Feishu: uploaded, file_token: " + fileToken);
+
+      var folderToken = (cfg.feishu && cfg.feishu.target_folder) || "";
+      updateFeishuProgress(progressEl, L.feishuStepImport, 5);
+      var ticket = await feishuCreateImportTask(token, fileToken, title, folderToken);
+      pluginLog("info", "Feishu: import task created, ticket: " + ticket);
+
+      updateFeishuProgress(progressEl, L.feishuStepPoll, 5);
+      var result = await feishuPollImportResult(token, ticket);
+      pluginLog("info", "Feishu: import done, url: " + result.url);
+
+      setFeishuSession(sessionKey, {
+        title: title,
+        feishu_doc_token: result.token,
+        feishu_doc_url: result.url,
+        last_archived_at: new Date().toISOString(),
+        content_cache: docContent.slice(0, 5000),
+      });
+
+      removeFeishuProgress(progressEl);
+      showFeishuSuccess(title, result.url);
+
+    } catch (e) {
+      removeFeishuProgress(progressEl);
+      pluginLog("error", "Feishu archive failed: " + e.message);
+      showToast(L.feishuFailed + e.message, "error", 5000);
+    }
+  }
+
+  // ===================== Feishu progress UI =====================
+
+  function showFeishuProgress() {
+    var old = document.getElementById("ai-feishu-progress");
+    if (old) old.remove();
+
+    var el = document.createElement("div");
+    el.id = "ai-feishu-progress";
+    el.className = "ai-feishu-progress";
+    el.innerHTML =
+      '<div class="ai-feishu-progress-inner">' +
+        '<div class="ai-feishu-title">' + escHTML(L.feishuArchiving) + '</div>' +
+        '<div class="ai-feishu-steps">' +
+          buildStepHTML(1) + buildStepHTML(2) + buildStepHTML(3) +
+          buildStepHTML(4) + buildStepHTML(5) +
+        '</div>' +
+        '<div class="ai-feishu-status"></div>' +
+      '</div>';
+    document.body.appendChild(el);
+    requestAnimationFrame(function () { el.classList.add("show"); });
+    return el;
+  }
+
+  function buildStepHTML(n) {
+    var labels = [L.feishuStepTitle, L.feishuStepConvert, L.feishuStepAuth,
+                  L.feishuStepUpload, L.feishuStepImport];
+    return '<div class="ai-feishu-step" data-step="' + n + '">' +
+      '<span class="ai-feishu-step-dot"></span>' +
+      '<span class="ai-feishu-step-label">' + escHTML(labels[n - 1]) + '</span></div>';
+  }
+
+  function updateFeishuProgress(el, msg, activeStep) {
+    if (!el) return;
+    var status = el.querySelector(".ai-feishu-status");
+    if (status) status.textContent = msg;
+
+    var steps = el.querySelectorAll(".ai-feishu-step");
+    for (var i = 0; i < steps.length; i++) {
+      var stepNum = parseInt(steps[i].getAttribute("data-step"));
+      steps[i].classList.toggle("done", stepNum < activeStep);
+      steps[i].classList.toggle("active", stepNum === activeStep);
+    }
+  }
+
+  function removeFeishuProgress(el) {
+    if (el) {
+      el.classList.remove("show");
+      setTimeout(function () { el.remove(); }, 300);
+    }
+  }
+
+  function showFeishuSuccess(title, url) {
+    var old = document.getElementById("ai-feishu-success");
+    if (old) old.remove();
+
+    var el = document.createElement("div");
+    el.id = "ai-feishu-success";
+    el.className = "ai-feishu-success";
+    el.innerHTML =
+      '<div class="ai-feishu-success-inner">' +
+        '<div class="ai-feishu-success-icon">✓</div>' +
+        '<div class="ai-feishu-success-title">' + escHTML(L.feishuDone) + '</div>' +
+        '<div class="ai-feishu-success-doc">' + escHTML(title) + '</div>' +
+        '<a class="ai-feishu-success-link" href="' + escHTML(url) + '" target="_blank">' +
+          escHTML(L.feishuOpenDoc) + '</a>' +
+        '<div class="ai-feishu-success-actions">' +
+          '<button class="ai-feishu-btn-copy">' + escHTML(L.feishuCopyLink) + '</button>' +
+          '<button class="ai-feishu-btn-close">' + escHTML(L.closeBtn) + '</button>' +
+        '</div>' +
+      '</div>';
+
+    el.querySelector(".ai-feishu-btn-copy").addEventListener("click", function () {
+      writeToClipboard(url);
+      showToast(L.copied, "success");
+    });
+    el.querySelector(".ai-feishu-btn-close").addEventListener("click", function () {
+      el.classList.remove("show");
+      setTimeout(function () { el.remove(); }, 300);
+    });
+
+    document.body.appendChild(el);
+    requestAnimationFrame(function () { el.classList.add("show"); });
+  }
+
+  // ===================== Feishu Document Manager =====================
+
+  var _docMgrState = { query: "", page: 1 };
+  var DOC_PAGE_SIZE = 10;
+
+  function showFeishuDocManager() {
+    var old = document.querySelector(".ai-edit-overlay.ai-docmgr-overlay");
+    if (old) old.remove();
+
+    _docMgrState = { query: "", page: 1 };
+
+    var overlay = document.createElement("div");
+    overlay.className = "ai-edit-overlay ai-docmgr-overlay";
+
+    var panel = document.createElement("div");
+    panel.className = "ai-edit-panel ai-docmgr-panel";
+
+    var header = document.createElement("div");
+    header.className = "ai-edit-panel-header";
+    header.innerHTML =
+      '<h3>' + escHTML(L.feishuDocManager) + '</h3>' +
+      '<button class="ai-edit-close">&times;</button>';
+
+    var searchBar = document.createElement("div");
+    searchBar.className = "ai-docmgr-search";
+    searchBar.innerHTML =
+      '<input type="text" class="ai-docmgr-search-input" placeholder="' + escHTML(L.feishuDocSearch) + '">';
+
+    var body = document.createElement("div");
+    body.className = "ai-edit-panel-body ai-docmgr-body";
+
+    panel.appendChild(header);
+    panel.appendChild(searchBar);
+    panel.appendChild(body);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    var searchInput = searchBar.querySelector(".ai-docmgr-search-input");
+    var debounceTimer = null;
+    searchInput.addEventListener("input", function () {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function () {
+        _docMgrState.query = searchInput.value.trim();
+        _docMgrState.page = 1;
+        renderDocList(body);
+      }, 200);
+    });
+
+    renderDocList(body);
+
+    header.querySelector(".ai-edit-close").addEventListener("click", function () {
+      overlay.remove();
+    });
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) overlay.remove();
+    });
+  }
+
+  function filterDocs(sessions, keys, query) {
+    if (!query) {
+      return keys.map(function (k) { return { key: k, matchType: null }; });
+    }
+    var q = query.toLowerCase();
+    var results = [];
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      var s = sessions[k];
+      var title = (s.title || k).toLowerCase();
+      if (title.indexOf(q) >= 0) {
+        results.push({ key: k, matchType: "title" });
+      } else if (s.content_cache && s.content_cache.toLowerCase().indexOf(q) >= 0) {
+        results.push({ key: k, matchType: "content" });
+      }
+    }
+    return results;
+  }
+
+  function renderDocList(container) {
+    var sessions = loadFeishuSessions();
+    var keys = Object.keys(sessions);
+
+    keys.sort(function (a, b) {
+      var ta = sessions[a].last_archived_at || "";
+      var tb = sessions[b].last_archived_at || "";
+      return tb.localeCompare(ta);
+    });
+
+    var filtered = filterDocs(sessions, keys, _docMgrState.query);
+    var totalCount = filtered.length;
+    var totalPages = Math.max(1, Math.ceil(totalCount / DOC_PAGE_SIZE));
+    if (_docMgrState.page > totalPages) _docMgrState.page = totalPages;
+    var start = (_docMgrState.page - 1) * DOC_PAGE_SIZE;
+    var pageItems = filtered.slice(start, start + DOC_PAGE_SIZE);
+
+    if (keys.length === 0) {
+      container.innerHTML = '<div class="ai-docmgr-empty">' + escHTML(L.feishuDocEmpty) + '</div>';
+      return;
+    }
+
+    if (totalCount === 0) {
+      container.innerHTML = '<div class="ai-docmgr-empty">' + escHTML(L.feishuDocNoMatch) + '</div>';
+      return;
+    }
+
+    var html = '<div class="ai-docmgr-status">' +
+      escHTML(L.feishuDocCount.replace("{count}", totalCount)) + '</div>';
+    html += '<div class="ai-docmgr-list">';
+
+    for (var i = 0; i < pageItems.length; i++) {
+      var item = pageItems[i];
+      var key = item.key;
+      var s = sessions[key];
+      var title = s.title || key;
+      var url = s.feishu_doc_url || "";
+      var time = s.last_archived_at ? formatDocTime(s.last_archived_at) : "";
+      var localName = key.indexOf("/") >= 0 ? key.slice(key.lastIndexOf("/") + 1) : key;
+
+      html += '<div class="ai-docmgr-item" data-key="' + escHTML(key) + '">';
+      html += '<div class="ai-docmgr-item-main">';
+      html += '<div class="ai-docmgr-item-title">';
+      if (url) {
+        html += '<a href="' + escHTML(url) + '" target="_blank" class="ai-docmgr-link">' + escHTML(title) + '</a>';
+      } else {
+        html += '<span>' + escHTML(title) + '</span>';
+      }
+      if (item.matchType) {
+        var badge = item.matchType === "title" ? L.feishuDocMatchTitle : L.feishuDocMatchContent;
+        html += '<span class="ai-docmgr-badge ai-docmgr-badge-' + item.matchType + '">' + escHTML(badge) + '</span>';
+      }
+      html += '</div>';
+      html += '<div class="ai-docmgr-item-meta">';
+      if (time) html += '<span class="ai-docmgr-time">' + escHTML(L.feishuDocTime + time) + '</span>';
+      html += '<span class="ai-docmgr-local">' + escHTML(localName) + '</span>';
+      html += '</div>';
+      html += '</div>';
+      html += '<button class="ai-docmgr-del" data-key="' + escHTML(key) + '" title="' + escHTML(L.feishuDocDelete) + '">' +
+              escHTML(L.feishuDocDelete) + '</button>';
+      html += '</div>';
+    }
+    html += '</div>';
+
+    if (totalPages > 1) {
+      var pageInfo = L.feishuDocPageInfo
+        .replace("{page}", _docMgrState.page)
+        .replace("{total}", totalPages);
+      html += '<div class="ai-docmgr-pager">';
+      html += '<button class="ai-docmgr-pager-btn ai-docmgr-prev"' +
+        (_docMgrState.page <= 1 ? ' disabled' : '') + '>' + escHTML(L.feishuDocPrev) + '</button>';
+      html += '<span class="ai-docmgr-pager-info">' + escHTML(pageInfo) + '</span>';
+      html += '<button class="ai-docmgr-pager-btn ai-docmgr-next"' +
+        (_docMgrState.page >= totalPages ? ' disabled' : '') + '>' + escHTML(L.feishuDocNext) + '</button>';
+      html += '</div>';
+    }
+
+    container.innerHTML = html;
+
+    var prevBtn = container.querySelector(".ai-docmgr-prev");
+    var nextBtn = container.querySelector(".ai-docmgr-next");
+    if (prevBtn) prevBtn.addEventListener("click", function () {
+      if (_docMgrState.page > 1) { _docMgrState.page--; renderDocList(container); }
+    });
+    if (nextBtn) nextBtn.addEventListener("click", function () {
+      if (_docMgrState.page < totalPages) { _docMgrState.page++; renderDocList(container); }
+    });
+
+    container.querySelectorAll(".ai-docmgr-del").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var k = btn.getAttribute("data-key");
+        var sess = loadFeishuSessions()[k];
+        if (!sess) return;
+        var msg = L.feishuDocConfirmDelete.replace("{title}", sess.title || k);
+        if (!confirm(msg)) return;
+        handleDocDelete(btn, k, container);
+      });
+    });
+  }
+
+  async function handleDocDelete(btn, sessionKey, container) {
+    btn.textContent = L.feishuDocDeleting;
+    btn.disabled = true;
+
+    try {
+      var sessions = loadFeishuSessions();
+      var session = sessions[sessionKey];
+
+      if (session && session.feishu_doc_token) {
+        var token = await getFeishuTenantToken();
+        await feishuDeleteDoc(token, session.feishu_doc_token);
+      }
+
+      delete sessions[sessionKey];
+      saveFeishuSessions(sessions);
+      pluginLog("info", "Feishu doc removed: " + (session && session.title || sessionKey));
+      showToast(L.feishuDocDeleted, "success");
+      renderDocList(container);
+    } catch (e) {
+      pluginLog("error", "Feishu doc delete failed: " + e.message);
+      showToast(L.feishuDocDeleteFail + e.message, "error", 4000);
+      btn.textContent = L.feishuDocDelete;
+      btn.disabled = false;
+    }
+  }
+
+  function formatDocTime(iso) {
+    try {
+      var d = new Date(iso);
+      var pad = function (n) { return n < 10 ? "0" + n : "" + n; };
+      return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+        " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+    } catch (_) { return iso; }
+  }
+
+  // ===================== In-memory Markdown → DOCX =====================
+
+  // --- CRC32 ---
+  var _crcT = (function () {
+    var t = new Uint32Array(256);
+    for (var i = 0; i < 256; i++) {
+      var c = i;
+      for (var j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[i] = c;
+    }
+    return t;
+  })();
+  function _crc32(d) {
+    var c = 0xFFFFFFFF;
+    for (var i = 0; i < d.length; i++) c = _crcT[(c ^ d[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  // --- Minimal ZIP (STORE, no compression) ---
+  function _zipBlob(entries) {
+    var parts = [], cd = [], off = 0;
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i], nm = new TextEncoder().encode(e.name), crc = _crc32(e.data), sz = e.data.length;
+      var lh = new ArrayBuffer(30 + nm.length), lv = new DataView(lh);
+      lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 20, true);
+      lv.setUint16(8, 0, true); lv.setUint32(14, crc, true);
+      lv.setUint32(18, sz, true); lv.setUint32(22, sz, true);
+      lv.setUint16(26, nm.length, true);
+      new Uint8Array(lh, 30).set(nm);
+      parts.push(new Uint8Array(lh)); parts.push(e.data);
+
+      var ch = new ArrayBuffer(46 + nm.length), cv = new DataView(ch);
+      cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+      cv.setUint16(10, 0, true); cv.setUint32(16, crc, true);
+      cv.setUint32(20, sz, true); cv.setUint32(24, sz, true);
+      cv.setUint16(28, nm.length, true); cv.setUint32(42, off, true);
+      new Uint8Array(ch, 46).set(nm);
+      cd.push(new Uint8Array(ch));
+      off += 30 + nm.length + sz;
+    }
+    var cdOff = off, cdSz = 0;
+    for (var i = 0; i < cd.length; i++) { parts.push(cd[i]); cdSz += cd[i].length; }
+    var eocd = new ArrayBuffer(22), ev = new DataView(eocd);
+    ev.setUint32(0, 0x06054b50, true);
+    ev.setUint16(8, entries.length, true); ev.setUint16(10, entries.length, true);
+    ev.setUint32(12, cdSz, true); ev.setUint32(16, cdOff, true);
+    parts.push(new Uint8Array(eocd));
+    return new Blob(parts, { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  }
+
+  // --- OOXML helpers ---
+  var _W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  var _R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+
+  function _ex(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function _wr(t, rp) { return "<w:r>" + (rp ? "<w:rPr>" + rp + "</w:rPr>" : "") + '<w:t xml:space="preserve">' + _ex(t) + "</w:t></w:r>"; }
+  function _wp(runs, pp) { return "<w:p>" + (pp ? "<w:pPr>" + pp + "</w:pPr>" : "") + runs + "</w:p>"; }
+
+  // --- Inline formatting: **bold**, *italic*, `code`, [link](url) ---
+  function _inlineXml(text) {
+    var xml = "", re = /(\*\*|__)(.*?)\1|(\*|_)((?:(?!\3).)+?)\3|`([^`]+)`|\[([^\]]*)\]\([^)]*\)/g;
+    var last = 0, m;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) xml += _wr(text.slice(last, m.index));
+      if (m[1]) xml += _wr(m[2], "<w:b/>");
+      else if (m[3]) xml += _wr(m[4], "<w:i/>");
+      else if (m[5] !== undefined) xml += _wr(m[5], '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:shd w:val="clear" w:fill="F0F0F0"/>');
+      else if (m[6] !== undefined) xml += _wr(m[6], '<w:color w:val="1155CC"/><w:u w:val="single"/>');
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) xml += _wr(text.slice(last));
+    return xml || _wr("");
+  }
+
+  // --- Block-level Markdown → OOXML body ---
+  function _mdToBodyXml(md) {
+    var lines = md.split("\n"), xml = "", i = 0;
+    while (i < lines.length) {
+      var L = lines[i];
+      if (!L.trim()) { i++; continue; }
+
+      var hm = L.match(/^(#{1,6})\s+(.*)/);
+      if (hm) { xml += _wp(_inlineXml(hm[2]), '<w:pStyle w:val="Heading' + hm[1].length + '"/>'); i++; continue; }
+
+      if (L.match(/^```/)) {
+        var code = ""; i++;
+        while (i < lines.length && !lines[i].match(/^```/)) { code += (code ? "\n" : "") + lines[i]; i++; }
+        var cl = code.split("\n");
+        for (var c = 0; c < cl.length; c++)
+          xml += _wp(_wr(cl[c], '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>'), '<w:pStyle w:val="CodeBlock"/>');
+        i++; continue;
+      }
+
+      if (L.match(/^>\s*/)) {
+        xml += _wp(_inlineXml(L.replace(/^>\s*/, "")), '<w:pStyle w:val="Quote"/>');
+        i++; continue;
+      }
+
+      var ulm = L.match(/^[\s]*[\*\-\+]\s+(.*)/);
+      if (ulm) {
+        var indent = L.match(/^(\s*)/)[1].length;
+        var lvl = Math.min(Math.floor(indent / 2), 3);
+        xml += _wp(_inlineXml(ulm[1]), '<w:numPr><w:ilvl w:val="' + lvl + '"/><w:numId w:val="1"/></w:numPr>');
+        i++; continue;
+      }
+
+      var olm = L.match(/^[\s]*\d+\.\s+(.*)/);
+      if (olm) {
+        var indent = L.match(/^(\s*)/)[1].length;
+        var lvl = Math.min(Math.floor(indent / 2), 3);
+        xml += _wp(_inlineXml(olm[1]), '<w:numPr><w:ilvl w:val="' + lvl + '"/><w:numId w:val="2"/></w:numPr>');
+        i++; continue;
+      }
+
+      if (L.match(/^[-*_]{3,}\s*$/)) {
+        xml += '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="CCCCCC"/></w:pBdr></w:pPr></w:p>';
+        i++; continue;
+      }
+
+      if (L.match(/^\|.*\|/)) {
+        if (i + 1 < lines.length && lines[i + 1].match(/^\|[\s\-:]+\|/)) i++;
+        else { xml += _wp(_inlineXml(L)); }
+        i++; continue;
+      }
+
+      xml += _wp(_inlineXml(L));
+      i++;
+    }
+    return xml;
+  }
+
+  // --- Static DOCX parts ---
+  var _CT = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+    '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
+    '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>' +
+    '</Types>';
+
+  var _RELS = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+    '</Relationships>';
+
+  var _DRELS = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+    '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>' +
+    '</Relationships>';
+
+  var _STY = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<w:styles xmlns:w="' + _W + '">' +
+    '<w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/><w:rPr><w:sz w:val="24"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:pPr><w:spacing w:before="360" w:after="120"/></w:pPr><w:rPr><w:b/><w:sz w:val="48"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:pPr><w:spacing w:before="280" w:after="100"/></w:pPr><w:rPr><w:b/><w:sz w:val="36"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:pPr><w:spacing w:before="240" w:after="80"/></w:pPr><w:rPr><w:b/><w:sz w:val="28"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Heading4"><w:name w:val="heading 4"/><w:pPr><w:spacing w:before="200" w:after="60"/></w:pPr><w:rPr><w:b/><w:sz w:val="24"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Heading5"><w:name w:val="heading 5"/><w:pPr><w:spacing w:before="160" w:after="40"/></w:pPr><w:rPr><w:b/><w:sz w:val="22"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Heading6"><w:name w:val="heading 6"/><w:pPr><w:spacing w:before="120" w:after="40"/></w:pPr><w:rPr><w:b/><w:i/><w:sz w:val="22"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:pPr><w:ind w:left="720"/>' +
+    '<w:pBdr><w:left w:val="single" w:sz="12" w:space="8" w:color="CCCCCC"/></w:pBdr></w:pPr>' +
+    '<w:rPr><w:i/><w:color w:val="666666"/><w:sz w:val="24"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="CodeBlock"><w:name w:val="Code Block"/>' +
+    '<w:pPr><w:shd w:val="clear" w:fill="F5F5F5"/><w:spacing w:line="280" w:lineRule="exact"/></w:pPr>' +
+    '<w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="20"/></w:rPr></w:style>' +
+    '</w:styles>';
+
+  var _NUM = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<w:numbering xmlns:w="' + _W + '">' +
+    '<w:abstractNum w:abstractNumId="0">' +
+    '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\u2022"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>' +
+    '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\u25E6"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl>' +
+    '<w:lvl w:ilvl="2"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\u25AA"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2160" w:hanging="360"/></w:pPr></w:lvl>' +
+    '</w:abstractNum>' +
+    '<w:abstractNum w:abstractNumId="1">' +
+    '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>' +
+    '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%2."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl>' +
+    '<w:lvl w:ilvl="2"><w:start w:val="1"/><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%3."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2160" w:hanging="360"/></w:pPr></w:lvl>' +
+    '</w:abstractNum>' +
+    '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>' +
+    '<w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>' +
+    '</w:numbering>';
+
+  // --- Main: Markdown string → DOCX Blob ---
+  function markdownToDocxBlob(md) {
+    var body = _mdToBodyXml(md);
+    var doc = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<w:document xmlns:w="' + _W + '" xmlns:r="' + _R + '"><w:body>' + body + '</w:body></w:document>';
+    var te = new TextEncoder();
+    return _zipBlob([
+      { name: "[Content_Types].xml", data: te.encode(_CT) },
+      { name: "_rels/.rels", data: te.encode(_RELS) },
+      { name: "word/_rels/document.xml.rels", data: te.encode(_DRELS) },
+      { name: "word/document.xml", data: te.encode(doc) },
+      { name: "word/styles.xml", data: te.encode(_STY) },
+      { name: "word/numbering.xml", data: te.encode(_NUM) },
+    ]);
+  }
+
+  // ===================== Logger =====================
+
+  var _pluginLogs = [];
+  var _LOG_MAX = 500;
+
+  function pluginLog(level, msg) {
+    var entry = {
+      time: new Date(),
+      level: level || "info",
+      msg: typeof msg === "string" ? msg : String(msg),
+    };
+    _pluginLogs.push(entry);
+    if (_pluginLogs.length > _LOG_MAX) _pluginLogs.splice(0, _pluginLogs.length - _LOG_MAX);
+    var prefix = "[AI Edit][" + entry.level.toUpperCase() + "]";
+    if (level === "error") console.error(prefix, entry.msg);
+    else if (level === "warn") console.warn(prefix, entry.msg);
+    else console.log(prefix, entry.msg);
+  }
+
+  function getPluginLogs() {
+    return _pluginLogs.slice();
+  }
+
+  function clearPluginLogs() {
+    _pluginLogs = [];
+  }
+
+  function formatLogTime(d) {
+    var h = String(d.getHours()).padStart(2, "0");
+    var m = String(d.getMinutes()).padStart(2, "0");
+    var s = String(d.getSeconds()).padStart(2, "0");
+    return h + ":" + m + ":" + s;
+  }
+
+  function formatLogsAsText() {
+    return _pluginLogs.map(function (e) {
+      var t = e.time.getFullYear() + "-" +
+        String(e.time.getMonth() + 1).padStart(2, "0") + "-" +
+        String(e.time.getDate()).padStart(2, "0") + " " + formatLogTime(e.time);
+      return "[" + t + "] [" + e.level.toUpperCase() + "] " + e.msg;
+    }).join("\n");
+  }
+
+  // Capture unhandled errors
+  window.addEventListener("error", function (ev) {
+    var msg = (ev.message || "Unknown error") + (ev.filename ? " (" + ev.filename + ":" + ev.lineno + ")" : "");
+    if (msg.indexOf("AI Edit") >= 0 || msg.indexOf("ai-edit") >= 0 || msg.indexOf("feishu") >= 0) {
+      pluginLog("error", msg);
+    }
+  });
+
+  window.addEventListener("unhandledrejection", function (ev) {
+    var msg = ev.reason ? (ev.reason.message || String(ev.reason)) : "Unhandled promise rejection";
+    if (msg.indexOf("AI Edit") >= 0 || msg.indexOf("ai-edit") >= 0 || msg.indexOf("feishu") >= 0 || msg.indexOf("Feishu") >= 0) {
+      pluginLog("error", msg);
+    }
+  });
+
+  // ===================== Log Panel UI =====================
+
+  function showLogPanel() {
+    var existing = document.querySelector(".ai-log-overlay");
+    if (existing) existing.remove();
+
+    var overlay = document.createElement("div");
+    overlay.className = "ai-edit-overlay ai-log-overlay";
+
+    var panel = document.createElement("div");
+    panel.className = "ai-edit-panel ai-log-panel";
+
+    var header = document.createElement("div");
+    header.className = "ai-edit-panel-header";
+    header.innerHTML = '<h3>' + escHTML(L.logTitle) + '</h3>' +
+      '<button class="ai-edit-close" data-log-action="close">&times;</button>';
+
+    var body = document.createElement("div");
+    body.className = "ai-edit-panel-body ai-log-body";
+
+    var logList = document.createElement("div");
+    logList.className = "ai-log-list";
+    logList.id = "ai-log-list";
+    renderLogEntries(logList);
+    body.appendChild(logList);
+
+    var footer = document.createElement("div");
+    footer.className = "ai-edit-panel-footer";
+    footer.innerHTML =
+      '<button class="ai-btn secondary" data-log-action="clear">' + escHTML(L.logClear) + '</button>' +
+      '<span class="ai-edit-spacer"></span>' +
+      '<button class="ai-btn secondary" data-log-action="copy">' + escHTML(L.logCopy) + '</button>' +
+      '<button class="ai-btn primary" data-log-action="close">' + escHTML(L.closeBtn) + '</button>';
+
+    panel.appendChild(header);
+    panel.appendChild(body);
+    panel.appendChild(footer);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener("click", function (e) {
+      var action = e.target.dataset.logAction;
+      if (!action && e.target === overlay) action = "close";
+      if (!action) return;
+
+      if (action === "close") {
+        overlay.remove();
+      } else if (action === "copy") {
+        var text = formatLogsAsText();
+        writeToClipboard(text || L.logEmpty);
+        showToast(L.logCopied, "success");
+      } else if (action === "clear") {
+        clearPluginLogs();
+        renderLogEntries(logList);
+        showToast(L.logCleared, "success");
+      }
+    });
+  }
+
+  function renderLogEntries(container) {
+    var logs = getPluginLogs();
+    if (logs.length === 0) {
+      container.innerHTML = '<div class="ai-log-empty">' + escHTML(L.logEmpty) + '</div>';
+      return;
+    }
+    var html = "";
+    for (var i = logs.length - 1; i >= 0; i--) {
+      var e = logs[i];
+      var levelClass = "ai-log-" + e.level;
+      html += '<div class="ai-log-entry ' + levelClass + '">' +
+        '<span class="ai-log-time">' + formatLogTime(e.time) + '</span>' +
+        '<span class="ai-log-level">' + e.level.toUpperCase() + '</span>' +
+        '<span class="ai-log-msg">' + escHTML(e.msg) + '</span>' +
+        '</div>';
+    }
+    container.innerHTML = html;
   }
 
 })();
