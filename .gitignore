@@ -5,3 +5,11 @@
 node_modules/
 typora-copilot-main/
 *.bak
+
+# Internal docs (not published to GitHub)
+doc/
+
+# Secrets & credentials
+.env
+secrets.json
+feishu-credentials.json
