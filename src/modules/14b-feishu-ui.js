@@ -441,10 +441,28 @@
     btn.disabled = true;
 
     try {
-      var fs = null;
-      try { fs = (window.reqnode || require)("fs"); } catch (_) {}
-      if (!fs) {
-        showToast(L.feishuDocEditFail + "fs unavailable", "error", 4000);
+      var _writeFile = null;
+      var _openInTypora = null;
+
+      if (window.bridge && window.bridge.callSync) {
+        _writeFile = function (p, c) { window.bridge.callSync("path.writeText", p, c); };
+      }
+      if (!_writeFile && window.reqnode) {
+        try {
+          var _fs = window.reqnode("fs");
+          if (_fs && _fs.writeFileSync) _writeFile = function (p, c) { _fs.writeFileSync(p, c, "utf8"); };
+        } catch (_) {}
+      }
+      if (!_writeFile && typeof require === "function") {
+        try {
+          var _fs2 = require("fs");
+          if (_fs2 && _fs2.writeFileSync) _writeFile = function (p, c) { _fs2.writeFileSync(p, c, "utf8"); };
+        } catch (_) {}
+      }
+
+      if (!_writeFile) {
+        pluginLog("error", "Feishu edit: no file write method available");
+        showToast(L.feishuDocEditFail + "file write unavailable", "error", 4000);
         btn.textContent = L.feishuDocEdit;
         btn.disabled = false;
         return;
@@ -457,19 +475,22 @@
       var openedNewWindow = false;
 
       if (filePath) {
-        fs.writeFileSync(filePath, content, "utf8");
+        _writeFile(filePath, content);
       } else {
-        var os = null;
-        try { os = (window.reqnode || require)("os"); } catch (_) {}
-        var tmpDir = (os && os.tmpdir()) || "/tmp";
+        var tmpDir = "/tmp";
+        try {
+          if (window.reqnode) tmpDir = window.reqnode("os").tmpdir();
+          else if (typeof require === "function") tmpDir = require("os").tmpdir();
+        } catch (_) {}
         var safeName = (session.title || "feishu-doc").replace(/[^\w\u4e00-\u9fff-]/g, "_");
         filePath = tmpDir + "/" + safeName + ".md";
-        fs.writeFileSync(filePath, content, "utf8");
+        _writeFile(filePath, content);
 
         openedNewWindow = true;
         try {
-          var cp = (window.reqnode || require)("child_process");
-          cp.exec('open -a Typora "' + filePath.replace(/"/g, '\\"') + '"');
+          if (window.reqnode) window.reqnode("child_process").exec('open "' + filePath.replace(/"/g, '\\"') + '"');
+          else if (typeof require === "function") require("child_process").exec('open "' + filePath.replace(/"/g, '\\"') + '"');
+          else window.open("file://" + filePath);
         } catch (_) {
           try { window.open("file://" + filePath); } catch (_2) {}
         }
