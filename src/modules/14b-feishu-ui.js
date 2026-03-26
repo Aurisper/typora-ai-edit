@@ -472,11 +472,7 @@
       try { filePath = window.File && window.File.filePath; } catch (_) {}
       if (!filePath) try { filePath = window.File && window.File.bundle && window.File.bundle.filePath; } catch (_) {}
 
-      var openedNewWindow = false;
-
-      if (filePath) {
-        _writeFile(filePath, content);
-      } else {
+      if (!filePath) {
         var tmpDir = "/tmp";
         try {
           if (window.reqnode) tmpDir = window.reqnode("os").tmpdir();
@@ -484,17 +480,9 @@
         } catch (_) {}
         var safeName = (session.title || "feishu-doc").replace(/[^\w\u4e00-\u9fff-]/g, "_");
         filePath = tmpDir + "/" + safeName + ".md";
-        _writeFile(filePath, content);
-
-        openedNewWindow = true;
-        try {
-          if (window.reqnode) window.reqnode("child_process").exec('open "' + filePath.replace(/"/g, '\\"') + '"');
-          else if (typeof require === "function") require("child_process").exec('open "' + filePath.replace(/"/g, '\\"') + '"');
-          else window.open("file://" + filePath);
-        } catch (_) {
-          try { window.open("file://" + filePath); } catch (_2) {}
-        }
       }
+
+      _writeFile(filePath, content);
 
       _feishuEditState = {
         sessionKey: sessionKey,
@@ -503,21 +491,25 @@
         feishu_doc_url: session.feishu_doc_url,
       };
 
-      if (!openedNewWindow) {
-        setTimeout(function () {
-          try {
-            if (window.File && typeof window.File.reloadContent === "function") {
-              window.File.reloadContent(true, function () {});
-            } else if (window.File && window.File.editor && typeof window.File.editor.reload === "function") {
-              window.File.editor.reload();
-            }
-          } catch (_) {}
-        }, 200);
-        showFeishuEditBar();
-      }
-
       var overlay = document.querySelector(".ai-edit-overlay.ai-docmgr-overlay");
       if (overlay) overlay.remove();
+
+      setTimeout(function () {
+        try {
+          if (window.File) window.File.filePath = filePath;
+          if (window.File && typeof window.File.reloadContent === "function") {
+            window.File.reloadContent(true, function () {});
+          } else if (window.File && window.File.editor && typeof window.File.editor.reload === "function") {
+            window.File.editor.reload();
+          } else {
+            location.href = "file://" + encodeURI(filePath);
+            return;
+          }
+        } catch (_) {
+          try { location.href = "file://" + encodeURI(filePath); } catch (_2) {}
+        }
+        showFeishuEditBar();
+      }, 200);
 
       pluginLog("info", "Feishu doc loaded for editing: " + session.title +
         (isPartial ? " (partial content)" : ""));
