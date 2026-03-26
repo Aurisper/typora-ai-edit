@@ -472,7 +472,11 @@
       try { filePath = window.File && window.File.filePath; } catch (_) {}
       if (!filePath) try { filePath = window.File && window.File.bundle && window.File.bundle.filePath; } catch (_) {}
 
-      if (!filePath) {
+      var needsNavigate = false;
+
+      if (filePath) {
+        _writeFile(filePath, content);
+      } else {
         var tmpDir = "/tmp";
         try {
           if (window.reqnode) tmpDir = window.reqnode("os").tmpdir();
@@ -480,11 +484,11 @@
         } catch (_) {}
         var safeName = (session.title || "feishu-doc").replace(/[^\w\u4e00-\u9fff-]/g, "_");
         filePath = tmpDir + "/" + safeName + ".md";
+        _writeFile(filePath, content);
+        needsNavigate = true;
       }
 
-      _writeFile(filePath, content);
-
-      _feishuEditState = {
+      var editState = {
         sessionKey: sessionKey,
         title: session.title,
         feishu_doc_token: session.feishu_doc_token,
@@ -494,22 +498,23 @@
       var overlay = document.querySelector(".ai-edit-overlay.ai-docmgr-overlay");
       if (overlay) overlay.remove();
 
-      setTimeout(function () {
-        try {
-          if (window.File) window.File.filePath = filePath;
-          if (window.File && typeof window.File.reloadContent === "function") {
-            window.File.reloadContent(true, function () {});
-          } else if (window.File && window.File.editor && typeof window.File.editor.reload === "function") {
-            window.File.editor.reload();
-          } else {
-            location.href = "file://" + encodeURI(filePath);
-            return;
-          }
-        } catch (_) {
-          try { location.href = "file://" + encodeURI(filePath); } catch (_2) {}
-        }
-        showFeishuEditBar();
-      }, 200);
+      if (needsNavigate) {
+        localStorage.setItem("typora-ai-edit-feishu-editing", JSON.stringify(editState));
+        pluginLog("info", "Feishu doc: navigating to temp file for: " + session.title);
+        location.href = "file://" + encodeURI(filePath);
+      } else {
+        _feishuEditState = editState;
+        setTimeout(function () {
+          try {
+            if (window.File && typeof window.File.reloadContent === "function") {
+              window.File.reloadContent(true, function () {});
+            } else if (window.File && window.File.editor && typeof window.File.editor.reload === "function") {
+              window.File.editor.reload();
+            }
+          } catch (_) {}
+          showFeishuEditBar();
+        }, 200);
+      }
 
       pluginLog("info", "Feishu doc loaded for editing: " + session.title +
         (isPartial ? " (partial content)" : ""));

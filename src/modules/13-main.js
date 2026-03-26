@@ -70,6 +70,16 @@
       }
     }, true);
 
+    try {
+      var pendingEdit = localStorage.getItem("typora-ai-edit-feishu-editing");
+      if (pendingEdit) {
+        localStorage.removeItem("typora-ai-edit-feishu-editing");
+        _feishuEditState = JSON.parse(pendingEdit);
+        showFeishuEditBar();
+        pluginLog("info", "Feishu edit state restored: " + _feishuEditState.title);
+      }
+    } catch (_) {}
+
     pluginLog("info", L.loaded);
   }
 
