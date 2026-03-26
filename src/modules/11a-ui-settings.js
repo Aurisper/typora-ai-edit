@@ -107,6 +107,13 @@
       "</div>" +
 
       '<div class="ai-menu-sep" style="margin:16px 0"></div>' +
+      "<h4>" + escHTML(L.tavilySection) + "</h4>" +
+      "<label>" + escHTML(L.tavilyApiKey) + "</label>" +
+      '<input type="password" id="ai-s-tavily-key" class="ai-text-input" placeholder="tvly-xxxxxxxxxxxxxxxx" value="' +
+      escHTML((cfg.tavily && cfg.tavily.api_key) || "") + '" />' +
+      '<p class="ai-edit-hint">' + escHTML(L.tavilyHint) + '</p>' +
+
+      '<div class="ai-menu-sep" style="margin:16px 0"></div>' +
       "<h4>" + escHTML(L.feishuSection) + "</h4>" +
       "<label>" + escHTML(L.feishuAppId) + "</label>" +
       '<input type="text" id="ai-s-feishu-appid" class="ai-text-input" placeholder="cli_xxxxxxxxxxxxx" value="' +

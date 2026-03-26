@@ -72,6 +72,10 @@
     shortcuts: {
       qa: { key: "e", metaKey: true, shiftKey: false, ctrlKey: false, altKey: false },
     },
+    tavily: {
+      api_key: "",
+      enabled: false,
+    },
     feishu: {
       app_id: "",
       app_secret: "",
@@ -90,6 +94,7 @@
           prompts: { ...DEFAULT_CONFIG.prompts, ...(parsed.prompts || {}) },
           shortcuts: { ...DEFAULT_CONFIG.shortcuts, ...(parsed.shortcuts || {}) },
           openai_compat: { ...DEFAULT_CONFIG.openai_compat, ...(parsed.openai_compat || {}) },
+          tavily: { ...DEFAULT_CONFIG.tavily, ...(parsed.tavily || {}) },
           feishu: { ...DEFAULT_CONFIG.feishu, ...(parsed.feishu || {}) },
         };
       }

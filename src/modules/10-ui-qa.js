@@ -83,10 +83,12 @@
       var question = document.getElementById("ai-qa-input").value.trim();
       if (!question) return;
       var useWeb = document.getElementById("ai-prompt-web").checked;
+      var useTavily = document.getElementById("ai-prompt-tavily") && document.getElementById("ai-prompt-tavily").checked;
       var withContext = document.getElementById("ai-qa-ctx").checked;
 
       running = true;
       stream = transformToStreaming(overlay, "ai-qa-input");
+      if (useTavily) stream.outputEl.value = L.tavilySearching;
 
       var systemPrompt, userPrompt;
 
@@ -112,6 +114,8 @@
 
       var runCfg = JSON.parse(JSON.stringify(cfg));
       runCfg.web_search = useWeb;
+      runCfg._tavily_search = useTavily;
+      runCfg._tavily_query = question;
       runCfg._onChunk = function (delta) { stream.append(delta); };
 
       callAPI(systemPrompt, userPrompt, runCfg).then(function (result) {

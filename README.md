@@ -85,6 +85,13 @@ Ask AI to generate a flowchart — it outputs HTML/CSS/SVG code that Typora rend
 </tr>
 </table>
 
+### Tavily Web Search
+
+- **Tavily Search Integration** — Use [Tavily](https://tavily.com) as an independent web search engine to augment AI responses with real-time information
+- **Toggle from Menu or Dialog** — Enable/disable Tavily search from the context menu or per-dialog checkbox
+- **Search-Augmented Generation** — Tavily results (summary + top 5 sources) are automatically injected into the prompt as reference material
+- **Works with Any Model** — Independent of model's built-in web search; works with all AI providers
+
 ### Feishu Integration
 
 - **Save as Feishu Doc** — Right-click → "Save as Feishu Doc" to create a Feishu online doc
@@ -263,6 +270,7 @@ sudo cp src/typora-ai-edit.js \
 | Diagram Rendering | AI generates HTML/CSS/SVG or Mermaid → Typora renders inline |
 | Feishu Online Doc | Pure JS DOCX generation (CRC32+ZIP+OOXML) with embedded images (DOM canvas + multi-fallback) → `fetch` upload → import API |
 | Document Manager | Session-based doc list with search, pagination, local editing, save-back, delete |
+| Tavily Web Search | Tavily Search API (`/search`) → results injected into prompt as context before AI call |
 | Operation Log | In-memory log store (500 entries) + modal panel with copy/clear |
 
 ## Contributing
@@ -278,6 +286,18 @@ Please also review our [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Polic
 ## Changelog
 
 <details open>
+<summary><strong>v0.9.0</strong> — Tavily Web Search Integration (2026-03-26)</summary>
+
+- **New: Tavily search integration** — Use Tavily as an independent web search engine; search results (summary + top 5 sources) are injected into the AI prompt as reference material
+- **New: Context menu toggle** — Right-click menu adds "🔍 Tavily Search" toggle; grayed out when API key not configured
+- **New: Dialog checkbox** — All dialogs (Optimize, Image, Q&A) now show a "Tavily Search" checkbox alongside the existing "Web Search"
+- **New: Settings panel** — New "Tavily Web Search" section with API Key configuration field
+- **New: Search status feedback** — Dialog shows "Searching via Tavily…" while search is in progress
+- **Architecture** — `callTavilySearch()` in `04-api.js`; integrated into unified `callAPI()` entry point with `_tavily_search` / `_tavily_query` runtime config
+
+</details>
+
+<details>
 <summary><strong>v0.8.1</strong> — DOCX Image Embedding (2026-03-26)</summary>
 
 - **New: Image support in Feishu archive** — Images in Markdown documents are now embedded into the DOCX file and visible in Feishu online docs

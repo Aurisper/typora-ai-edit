@@ -21,6 +21,8 @@
     cfg.prompts.qa_with_context.user = document.getElementById("ai-s-qac-usr").value;
     var scQa = document.getElementById("ai-s-sc-qa")._shortcut;
     if (scQa) cfg.shortcuts.qa = scQa;
+    cfg.tavily = cfg.tavily || {};
+    cfg.tavily.api_key = document.getElementById("ai-s-tavily-key").value.trim();
     cfg.feishu = cfg.feishu || {};
     cfg.feishu.app_id = document.getElementById("ai-s-feishu-appid").value.trim();
     cfg.feishu.app_secret = document.getElementById("ai-s-feishu-secret").value.trim();
@@ -45,6 +47,7 @@
     var defQa = DEFAULT_CONFIG.shortcuts.qa;
     document.getElementById("ai-s-sc-qa").value = shortcutDisplay(defQa);
     document.getElementById("ai-s-sc-qa")._shortcut = defQa;
+    document.getElementById("ai-s-tavily-key").value = "";
     document.getElementById("ai-s-feishu-appid").value = "";
     document.getElementById("ai-s-feishu-secret").value = "";
     document.getElementById("ai-s-feishu-folder").value = "";

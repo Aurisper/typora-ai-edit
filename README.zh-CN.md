@@ -85,6 +85,13 @@
 </tr>
 </table>
 
+### Tavily 联网搜索
+
+- **Tavily 搜索集成** — 使用 [Tavily](https://tavily.com) 作为独立联网搜索引擎，为 AI 回答注入实时网络信息
+- **菜单和对话框开关** — 右键菜单一键开关 Tavily 搜索，对话框中也可单独勾选
+- **搜索增强生成** — Tavily 搜索结果（摘要 + 前 5 条来源）自动注入 prompt 作为参考资料
+- **兼容所有模型** — 不依赖模型自带的联网能力，适用于所有 AI 提供方
+
 ### 飞书在线文档
 
 - **保存为飞书在线文档** — 右键 →「保存为飞书在线文档」，自动生成飞书在线文档
@@ -263,6 +270,7 @@ sudo cp src/typora-ai-edit.js \
 | 图表渲染 | AI 生成 HTML/CSS/SVG 或 Mermaid → Typora 内联渲染 |
 | 飞书在线文档 | 纯 JS DOCX 生成（CRC32+ZIP+OOXML，含图片嵌入：DOM canvas + 多重回退）→ `fetch` 上传 → 导入 API |
 | 文档管理器 | Session 文档列表 + 搜索 + 分页 + 本地编辑 + 回写覆盖 + 删除 |
+| Tavily 联网搜索 | Tavily Search API（`/search`）→ 搜索结果注入 prompt 作为上下文，再调 AI |
 | 操作日志 | 内存日志存储（500 条）+ 模态面板，支持复制/清除 |
 
 ## 参与贡献
@@ -278,6 +286,18 @@ sudo cp src/typora-ai-edit.js \
 ## 更新日志
 
 <details open>
+<summary><strong>v0.9.0</strong> — Tavily 联网搜索集成 (2026-03-26)</summary>
+
+- **新增：Tavily 搜索集成** — 使用 Tavily 作为独立联网搜索引擎；搜索结果（摘要 + 前 5 条来源）注入 AI prompt 作为参考资料
+- **新增：右键菜单开关** — 右键菜单新增「🔍 Tavily 搜索」开关项；未配置 API Key 时灰显并提示
+- **新增：对话框复选框** — 所有对话框（优化、图片分析、AI 问答）选项区新增「Tavily 搜索」复选框
+- **新增：设置面板** — 新增「Tavily 联网搜索」配置区块，含 API Key 输入框
+- **新增：搜索状态反馈** — 搜索进行中对话框显示「Tavily 搜索中…」
+- **架构** — `04-api.js` 新增 `callTavilySearch()`；集成到统一 `callAPI()` 入口，通过 `_tavily_search` / `_tavily_query` 运行时配置驱动
+
+</details>
+
+<details>
 <summary><strong>v0.8.1</strong> — DOCX 图片嵌入 (2026-03-26)</summary>
 
 - **新增：飞书归档支持图片** — Markdown 文档中的图片现在会嵌入到 DOCX 文件中，在飞书在线文档中可直接查看

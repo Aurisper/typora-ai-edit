@@ -111,6 +111,15 @@
         testLogAutoFetchFail: "自动获取失败，请手动输入模型名称",
         testMissingFields: "请填写 API 地址和 API Key",
         webNotSupported: "当前模型不支持联网搜索",
+        tavilySearch: "Tavily 搜索",
+        tavilySearchOn: "Tavily 搜索已开启",
+        tavilySearchOff: "Tavily 搜索已关闭",
+        tavilyNoKey: "请先在设置中配置 Tavily API Key",
+        tavilySection: "Tavily 联网搜索",
+        tavilyApiKey: "Tavily API Key",
+        tavilySearching: "Tavily 搜索中…",
+        tavilySearchDone: "搜索完成",
+        tavilyHint: "从 tavily.com 获取 API Key，联网搜索增强 AI 回答",
         visionNotSupported: "当前模型不支持图片解析",
         stop: "停止",
         confirmInsert: "插入",
@@ -283,6 +292,15 @@
         testLogAutoFetchFail: "Auto-fetch failed, please enter model names manually",
         testMissingFields: "Please fill in API URL and API Key",
         webNotSupported: "Current model does not support web search",
+        tavilySearch: "Tavily Search",
+        tavilySearchOn: "Tavily search enabled",
+        tavilySearchOff: "Tavily search disabled",
+        tavilyNoKey: "Please configure Tavily API Key in settings",
+        tavilySection: "Tavily Web Search",
+        tavilyApiKey: "Tavily API Key",
+        tavilySearching: "Searching via Tavily…",
+        tavilySearchDone: "Search complete",
+        tavilyHint: "Get an API key from tavily.com for web search-enhanced AI responses",
         visionNotSupported: "Current model does not support image analysis",
         stop: "Stop",
         confirmInsert: "Insert",
@@ -427,6 +445,10 @@
     shortcuts: {
       qa: { key: "e", metaKey: true, shiftKey: false, ctrlKey: false, altKey: false },
     },
+    tavily: {
+      api_key: "",
+      enabled: false,
+    },
     feishu: {
       app_id: "",
       app_secret: "",
@@ -445,6 +467,7 @@
           prompts: { ...DEFAULT_CONFIG.prompts, ...(parsed.prompts || {}) },
           shortcuts: { ...DEFAULT_CONFIG.shortcuts, ...(parsed.shortcuts || {}) },
           openai_compat: { ...DEFAULT_CONFIG.openai_compat, ...(parsed.openai_compat || {}) },
+          tavily: { ...DEFAULT_CONFIG.tavily, ...(parsed.tavily || {}) },
           feishu: { ...DEFAULT_CONFIG.feishu, ...(parsed.feishu || {}) },
         };
       }
@@ -910,9 +933,58 @@
     return result;
   }
 
+  // ===================== Tavily Search =====================
+
+  async function callTavilySearch(query, apiKey) {
+    var resp = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        query: query.slice(0, 400),
+        search_depth: "basic",
+        include_answer: true,
+        max_results: 5,
+      }),
+    });
+    if (!resp.ok) {
+      var errText = await resp.text().catch(function () { return ""; });
+      throw new Error("Tavily " + resp.status + ": " + errText.slice(0, 200));
+    }
+    var data = await resp.json();
+    var parts = [];
+    if (data.answer) {
+      parts.push((isChinese ? "【搜索摘要】\n" : "[Search Summary]\n") + data.answer);
+    }
+    if (data.results && data.results.length > 0) {
+      parts.push(isChinese ? "【搜索结果】" : "[Search Results]");
+      for (var i = 0; i < data.results.length; i++) {
+        var r = data.results[i];
+        parts.push((i + 1) + ". " + (r.title || "") + "\n   " + (r.url || "") + "\n   " + (r.content || "").slice(0, 500));
+      }
+    }
+    return parts.length > 0 ? parts.join("\n\n") : "";
+  }
+
   // ===================== Unified API entry =====================
 
-  function callAPI(systemPrompt, userPrompt, config, imageDataUrl) {
+  async function callAPI(systemPrompt, userPrompt, config, imageDataUrl) {
+    if (config._tavily_search && config.tavily && config.tavily.api_key) {
+      try {
+        var tq = config._tavily_query || userPrompt.slice(0, 400);
+        pluginLog("info", "Tavily search: " + tq.slice(0, 80));
+        var tavilyContext = await callTavilySearch(tq, config.tavily.api_key);
+        if (tavilyContext) {
+          var prefix = isChinese
+            ? "以下是通过联网搜索获取的参考资料，请结合这些信息回答：\n\n"
+            : "Below is reference material from a web search. Please use it to inform your response:\n\n";
+          userPrompt = prefix + tavilyContext + "\n\n---\n\n" + userPrompt;
+          pluginLog("info", "Tavily search results injected (" + tavilyContext.length + " chars)");
+        }
+      } catch (e) {
+        pluginLog("warn", "Tavily search failed: " + e.message);
+      }
+    }
     if (config.provider === "openai_compat") {
       return callOpenAICompatAPI(systemPrompt, userPrompt, config, imageDataUrl);
     }
@@ -1600,6 +1672,14 @@
       '<span class="ai-menu-icon">🌐</span>' +
       wc +
       escHTML(L.aiWebSearch) + "</div>";
+
+    var tavilyDisabled = !(cfg.tavily && cfg.tavily.api_key);
+    var tc = cfg.tavily && cfg.tavily.enabled && !tavilyDisabled ? "\u2713 " : "\u2003";
+    html +=
+      '<div class="ai-menu-item' + (tavilyDisabled ? " disabled" : "") + '" data-action="toggle-tavily">' +
+      '<span class="ai-menu-icon">🔍</span>' +
+      tc +
+      escHTML(L.tavilySearch) + "</div>";
     html += '<div class="ai-menu-sep"></div>';
     html +=
       '<div class="ai-menu-item" data-action="settings">' +
@@ -1711,6 +1791,14 @@
       cfg.web_search = !cfg.web_search;
       saveConfig(cfg);
       showToast(cfg.web_search ? L.webSearchOn : L.webSearchOff, "success");
+    } else if (action === "toggle-tavily") {
+      if (!cfg.tavily || !cfg.tavily.api_key) {
+        showToast(L.tavilyNoKey, "info");
+        return;
+      }
+      cfg.tavily.enabled = !cfg.tavily.enabled;
+      saveConfig(cfg);
+      showToast(cfg.tavily.enabled ? L.tavilySearchOn : L.tavilySearchOff, "success");
     } else if (action === "settings") {
       showSettingsPanel();
     } else if (action === "feishu_archive") {
@@ -1758,6 +1846,8 @@
     var extra = opts.extraCheckboxes || "";
     var caps = getModelCapabilities(cfg);
     var webDisabled = cfg.provider === "openai_compat" && !caps.web_search;
+    var tavilyDisabled = !(cfg.tavily && cfg.tavily.api_key);
+    var tavilyChecked = cfg.tavily && cfg.tavily.enabled && !tavilyDisabled;
 
     return '<div class="ai-prompt-panel">' +
       '<div class="ai-edit-panel-header">' +
@@ -1772,6 +1862,10 @@
       (cfg.web_search && !webDisabled ? "checked" : "") +
       (webDisabled ? " disabled" : "") +
       "> " + escHTML(L.webSearch) + "</label>" +
+      '<label class="ai-prompt-checkbox" style="margin-left:16px;' + (tavilyDisabled ? "opacity:.4" : "") + '"><input type="checkbox" id="ai-prompt-tavily" ' +
+      (tavilyChecked ? "checked" : "") +
+      (tavilyDisabled ? " disabled" : "") +
+      "> " + escHTML(L.tavilySearch) + "</label>" +
       extra +
       "</div>" +
       "</div>" +
@@ -1903,10 +1997,12 @@
       if (running) return;
       var extraPrompt = document.getElementById("ai-prompt-input").value.trim();
       var useWeb = document.getElementById("ai-prompt-web").checked;
+      var useTavily = document.getElementById("ai-prompt-tavily") && document.getElementById("ai-prompt-tavily").checked;
 
       if (!savedSelection || !savedSelection.text) { showToast(L.selectFirst, "error"); return; }
       running = true;
       stream = transformToStreaming(overlay, "ai-prompt-input");
+      if (useTavily) stream.outputEl.value = L.tavilySearching;
 
       var key = withContext ? "optimize_with_context" : "optimize";
       var prompts = cfg.prompts[key];
@@ -1919,6 +2015,8 @@
 
       var runCfg = JSON.parse(JSON.stringify(cfg));
       runCfg.web_search = useWeb;
+      runCfg._tavily_search = useTavily;
+      runCfg._tavily_query = extraPrompt || selText.slice(0, 300);
       runCfg._onChunk = function (delta) { stream.append(delta); };
 
       callAPI(prompts.system, userPrompt, runCfg).then(function (result) {
@@ -1988,10 +2086,12 @@
       if (running) return;
       var extraPrompt = document.getElementById("ai-prompt-input").value.trim();
       var useWeb = document.getElementById("ai-prompt-web").checked;
+      var useTavily = document.getElementById("ai-prompt-tavily") && document.getElementById("ai-prompt-tavily").checked;
 
       if (!savedImage) { showToast(L.noImage, "error"); return; }
       running = true;
       stream = transformToStreaming(overlay, "ai-prompt-input");
+      if (useTavily) stream.outputEl.value = L.tavilySearching;
 
       var imageUrl = await getImageDataUrl(savedImage);
       if (!imageUrl) { stream.showError(L.imgReadFail); running = false; return; }
@@ -2011,6 +2111,8 @@
 
       var runCfg = JSON.parse(JSON.stringify(cfg));
       runCfg.web_search = useWeb;
+      runCfg._tavily_search = useTavily;
+      if (useTavily && extraPrompt) runCfg._tavily_query = extraPrompt;
       runCfg._onChunk = function (delta) { stream.append(delta); };
 
       callAPI(systemPrompt, userPrompt, runCfg, imageUrl).then(function (result) {
@@ -2121,10 +2223,12 @@
       var question = document.getElementById("ai-qa-input").value.trim();
       if (!question) return;
       var useWeb = document.getElementById("ai-prompt-web").checked;
+      var useTavily = document.getElementById("ai-prompt-tavily") && document.getElementById("ai-prompt-tavily").checked;
       var withContext = document.getElementById("ai-qa-ctx").checked;
 
       running = true;
       stream = transformToStreaming(overlay, "ai-qa-input");
+      if (useTavily) stream.outputEl.value = L.tavilySearching;
 
       var systemPrompt, userPrompt;
 
@@ -2150,6 +2254,8 @@
 
       var runCfg = JSON.parse(JSON.stringify(cfg));
       runCfg.web_search = useWeb;
+      runCfg._tavily_search = useTavily;
+      runCfg._tavily_query = question;
       runCfg._onChunk = function (delta) { stream.append(delta); };
 
       callAPI(systemPrompt, userPrompt, runCfg).then(function (result) {
@@ -2335,6 +2441,13 @@
       "</div>" +
 
       '<div class="ai-menu-sep" style="margin:16px 0"></div>' +
+      "<h4>" + escHTML(L.tavilySection) + "</h4>" +
+      "<label>" + escHTML(L.tavilyApiKey) + "</label>" +
+      '<input type="password" id="ai-s-tavily-key" class="ai-text-input" placeholder="tvly-xxxxxxxxxxxxxxxx" value="' +
+      escHTML((cfg.tavily && cfg.tavily.api_key) || "") + '" />' +
+      '<p class="ai-edit-hint">' + escHTML(L.tavilyHint) + '</p>' +
+
+      '<div class="ai-menu-sep" style="margin:16px 0"></div>' +
       "<h4>" + escHTML(L.feishuSection) + "</h4>" +
       "<label>" + escHTML(L.feishuAppId) + "</label>" +
       '<input type="text" id="ai-s-feishu-appid" class="ai-text-input" placeholder="cli_xxxxxxxxxxxxx" value="' +
@@ -2409,6 +2522,8 @@
     cfg.prompts.qa_with_context.user = document.getElementById("ai-s-qac-usr").value;
     var scQa = document.getElementById("ai-s-sc-qa")._shortcut;
     if (scQa) cfg.shortcuts.qa = scQa;
+    cfg.tavily = cfg.tavily || {};
+    cfg.tavily.api_key = document.getElementById("ai-s-tavily-key").value.trim();
     cfg.feishu = cfg.feishu || {};
     cfg.feishu.app_id = document.getElementById("ai-s-feishu-appid").value.trim();
     cfg.feishu.app_secret = document.getElementById("ai-s-feishu-secret").value.trim();
@@ -2433,6 +2548,7 @@
     var defQa = DEFAULT_CONFIG.shortcuts.qa;
     document.getElementById("ai-s-sc-qa").value = shortcutDisplay(defQa);
     document.getElementById("ai-s-sc-qa")._shortcut = defQa;
+    document.getElementById("ai-s-tavily-key").value = "";
     document.getElementById("ai-s-feishu-appid").value = "";
     document.getElementById("ai-s-feishu-secret").value = "";
     document.getElementById("ai-s-feishu-folder").value = "";

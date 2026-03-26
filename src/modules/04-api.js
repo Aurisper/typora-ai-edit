@@ -212,9 +212,58 @@
     return result;
   }
 
+  // ===================== Tavily Search =====================
+
+  async function callTavilySearch(query, apiKey) {
+    var resp = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        query: query.slice(0, 400),
+        search_depth: "basic",
+        include_answer: true,
+        max_results: 5,
+      }),
+    });
+    if (!resp.ok) {
+      var errText = await resp.text().catch(function () { return ""; });
+      throw new Error("Tavily " + resp.status + ": " + errText.slice(0, 200));
+    }
+    var data = await resp.json();
+    var parts = [];
+    if (data.answer) {
+      parts.push((isChinese ? "【搜索摘要】\n" : "[Search Summary]\n") + data.answer);
+    }
+    if (data.results && data.results.length > 0) {
+      parts.push(isChinese ? "【搜索结果】" : "[Search Results]");
+      for (var i = 0; i < data.results.length; i++) {
+        var r = data.results[i];
+        parts.push((i + 1) + ". " + (r.title || "") + "\n   " + (r.url || "") + "\n   " + (r.content || "").slice(0, 500));
+      }
+    }
+    return parts.length > 0 ? parts.join("\n\n") : "";
+  }
+
   // ===================== Unified API entry =====================
 
-  function callAPI(systemPrompt, userPrompt, config, imageDataUrl) {
+  async function callAPI(systemPrompt, userPrompt, config, imageDataUrl) {
+    if (config._tavily_search && config.tavily && config.tavily.api_key) {
+      try {
+        var tq = config._tavily_query || userPrompt.slice(0, 400);
+        pluginLog("info", "Tavily search: " + tq.slice(0, 80));
+        var tavilyContext = await callTavilySearch(tq, config.tavily.api_key);
+        if (tavilyContext) {
+          var prefix = isChinese
+            ? "以下是通过联网搜索获取的参考资料，请结合这些信息回答：\n\n"
+            : "Below is reference material from a web search. Please use it to inform your response:\n\n";
+          userPrompt = prefix + tavilyContext + "\n\n---\n\n" + userPrompt;
+          pluginLog("info", "Tavily search results injected (" + tavilyContext.length + " chars)");
+        }
+      } catch (e) {
+        pluginLog("warn", "Tavily search failed: " + e.message);
+      }
+    }
     if (config.provider === "openai_compat") {
       return callOpenAICompatAPI(systemPrompt, userPrompt, config, imageDataUrl);
     }

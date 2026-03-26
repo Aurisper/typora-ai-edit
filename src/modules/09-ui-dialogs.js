@@ -5,6 +5,8 @@
     var extra = opts.extraCheckboxes || "";
     var caps = getModelCapabilities(cfg);
     var webDisabled = cfg.provider === "openai_compat" && !caps.web_search;
+    var tavilyDisabled = !(cfg.tavily && cfg.tavily.api_key);
+    var tavilyChecked = cfg.tavily && cfg.tavily.enabled && !tavilyDisabled;
 
     return '<div class="ai-prompt-panel">' +
       '<div class="ai-edit-panel-header">' +
@@ -19,6 +21,10 @@
       (cfg.web_search && !webDisabled ? "checked" : "") +
       (webDisabled ? " disabled" : "") +
       "> " + escHTML(L.webSearch) + "</label>" +
+      '<label class="ai-prompt-checkbox" style="margin-left:16px;' + (tavilyDisabled ? "opacity:.4" : "") + '"><input type="checkbox" id="ai-prompt-tavily" ' +
+      (tavilyChecked ? "checked" : "") +
+      (tavilyDisabled ? " disabled" : "") +
+      "> " + escHTML(L.tavilySearch) + "</label>" +
       extra +
       "</div>" +
       "</div>" +
@@ -150,10 +156,12 @@
       if (running) return;
       var extraPrompt = document.getElementById("ai-prompt-input").value.trim();
       var useWeb = document.getElementById("ai-prompt-web").checked;
+      var useTavily = document.getElementById("ai-prompt-tavily") && document.getElementById("ai-prompt-tavily").checked;
 
       if (!savedSelection || !savedSelection.text) { showToast(L.selectFirst, "error"); return; }
       running = true;
       stream = transformToStreaming(overlay, "ai-prompt-input");
+      if (useTavily) stream.outputEl.value = L.tavilySearching;
 
       var key = withContext ? "optimize_with_context" : "optimize";
       var prompts = cfg.prompts[key];
@@ -166,6 +174,8 @@
 
       var runCfg = JSON.parse(JSON.stringify(cfg));
       runCfg.web_search = useWeb;
+      runCfg._tavily_search = useTavily;
+      runCfg._tavily_query = extraPrompt || selText.slice(0, 300);
       runCfg._onChunk = function (delta) { stream.append(delta); };
 
       callAPI(prompts.system, userPrompt, runCfg).then(function (result) {
@@ -235,10 +245,12 @@
       if (running) return;
       var extraPrompt = document.getElementById("ai-prompt-input").value.trim();
       var useWeb = document.getElementById("ai-prompt-web").checked;
+      var useTavily = document.getElementById("ai-prompt-tavily") && document.getElementById("ai-prompt-tavily").checked;
 
       if (!savedImage) { showToast(L.noImage, "error"); return; }
       running = true;
       stream = transformToStreaming(overlay, "ai-prompt-input");
+      if (useTavily) stream.outputEl.value = L.tavilySearching;
 
       var imageUrl = await getImageDataUrl(savedImage);
       if (!imageUrl) { stream.showError(L.imgReadFail); running = false; return; }
@@ -258,6 +270,8 @@
 
       var runCfg = JSON.parse(JSON.stringify(cfg));
       runCfg.web_search = useWeb;
+      runCfg._tavily_search = useTavily;
+      if (useTavily && extraPrompt) runCfg._tavily_query = extraPrompt;
       runCfg._onChunk = function (delta) { stream.append(delta); };
 
       callAPI(systemPrompt, userPrompt, runCfg, imageUrl).then(function (result) {

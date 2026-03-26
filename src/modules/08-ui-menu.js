@@ -95,6 +95,14 @@
       '<span class="ai-menu-icon">🌐</span>' +
       wc +
       escHTML(L.aiWebSearch) + "</div>";
+
+    var tavilyDisabled = !(cfg.tavily && cfg.tavily.api_key);
+    var tc = cfg.tavily && cfg.tavily.enabled && !tavilyDisabled ? "\u2713 " : "\u2003";
+    html +=
+      '<div class="ai-menu-item' + (tavilyDisabled ? " disabled" : "") + '" data-action="toggle-tavily">' +
+      '<span class="ai-menu-icon">🔍</span>' +
+      tc +
+      escHTML(L.tavilySearch) + "</div>";
     html += '<div class="ai-menu-sep"></div>';
     html +=
       '<div class="ai-menu-item" data-action="settings">' +
@@ -206,6 +214,14 @@
       cfg.web_search = !cfg.web_search;
       saveConfig(cfg);
       showToast(cfg.web_search ? L.webSearchOn : L.webSearchOff, "success");
+    } else if (action === "toggle-tavily") {
+      if (!cfg.tavily || !cfg.tavily.api_key) {
+        showToast(L.tavilyNoKey, "info");
+        return;
+      }
+      cfg.tavily.enabled = !cfg.tavily.enabled;
+      saveConfig(cfg);
+      showToast(cfg.tavily.enabled ? L.tavilySearchOn : L.tavilySearchOff, "success");
     } else if (action === "settings") {
       showSettingsPanel();
     } else if (action === "feishu_archive") {
