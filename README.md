@@ -88,10 +88,12 @@ Ask AI to generate a flowchart — it outputs HTML/CSS/SVG code that Typora rend
 ### Feishu Integration
 
 - **Save as Feishu Doc** — Right-click → "Save as Feishu Doc" to create a Feishu online doc
+- **Edit Feishu Docs Locally** — Load any archived doc back into Typora for editing, then save back to overwrite the original
+- **Stop Archiving** — Cancel the archive process at any step with a single click
 - **AI Title Generation** — Automatically generates a concise title from your content
 - **Pure JS DOCX** — In-memory Markdown→DOCX conversion, zero external dependencies (no Pandoc)
 - **Session Management** — Same document overwrites previous version; different documents are isolated
-- **Document Manager** — Browse, search (title + full text), paginate, and delete archived Feishu docs
+- **Document Manager** — Browse, search (title + full text), paginate, edit, and delete archived Feishu docs
 - **Operation Log** — View log, one-click copy, one-click clear
 
 ### Productivity
@@ -114,7 +116,8 @@ Ask AI to generate a flowchart — it outputs HTML/CSS/SVG code that Typora rend
 | Build a Q&A knowledge base | Keep asking follow-up questions with full context enabled |
 | Translate content | Select text → right-click → AI Optimize → "Translate to Japanese" |
 | Save as Feishu Doc | Right-click → "Save as Feishu Doc" → auto title & online doc |
-| Manage Feishu docs | Right-click → "Feishu Documents" → search, browse, delete |
+| Edit a Feishu doc | "Feishu Documents" → click "Edit" → modify in Typora → "Save to Feishu" |
+| Manage Feishu docs | Right-click → "Feishu Documents" → search, browse, edit, delete |
 | View operation log | Right-click → "View Log" → check history, copy or clear |
 
 ## Getting Started
@@ -258,8 +261,8 @@ sudo cp src/typora-ai-edit.js \
 | Image Handling | Local → base64, web → download, canvas fallback, auto-compress |
 | Context Menu | Custom HTML overlay on `contextmenu` event |
 | Diagram Rendering | AI generates HTML/CSS/SVG or Mermaid → Typora renders inline |
-| Feishu Online Doc | Pure JS DOCX generation (CRC32+ZIP+OOXML) → `fetch` upload → import API |
-| Document Manager | Session-based doc list with search (title + cached content), pagination, delete |
+| Feishu Online Doc | Pure JS DOCX generation (CRC32+ZIP+OOXML) → `fetch` upload → import API; AbortController for cancellation |
+| Document Manager | Session-based doc list with search, pagination, local editing, save-back, delete |
 | Operation Log | In-memory log store (500 entries) + modal panel with copy/clear |
 
 ## Contributing
@@ -275,6 +278,17 @@ Please also review our [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Polic
 ## Changelog
 
 <details open>
+<summary><strong>v0.8.0</strong> — Feishu Doc Editing & Archive Control (2026-03-26)</summary>
+
+- **New: Edit Feishu docs locally** — Click "Edit" in the document manager to load an archived doc back into Typora; a blue status bar appears at the top with a "Save to Feishu" button to overwrite the original
+- **New: Stop archiving** — A "Stop" button on the archive progress overlay lets you cancel the process at any step; uses `AbortController` to abort in-flight fetch requests and polling
+- **New: Full content caching** — Archived documents now store the complete Markdown (not just the first 5000 chars), enabling lossless local editing
+- **Improved: Feishu API abort support** — All Feishu API functions (`getFeishuTenantToken`, `feishuUploadBlob`, `feishuCreateImportTask`, `feishuPollImportResult`) accept an optional `AbortSignal` for cancellation
+- **Improved: Document manager UI** — Each document now shows both "Edit" and "Delete" buttons side by side
+
+</details>
+
+<details>
 <summary><strong>v0.7.0</strong> — Feishu Integration & Document Management (2026-03-25)</summary>
 
 - **New: Save as Feishu Doc** — Right-click → "Save as Feishu Doc" to create an online Feishu document from the current Markdown

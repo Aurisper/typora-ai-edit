@@ -40,19 +40,23 @@
     var cfg = loadConfig();
     var filePath = (window.File && window.File.filePath) || null;
     var sessionKey = filePath || ("unsaved-" + simpleHash(docContent.slice(0, 200)));
-    var progressEl = showFeishuProgress();
+    var progress = showFeishuProgress();
+    var progressEl = progress.el;
+    var signal = progress.signal;
 
     try {
       updateFeishuProgress(progressEl, L.feishuStepTitle, 1);
       var title = await generateTitle(docContent, cfg);
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
       pluginLog("info", "Feishu: title generated: " + title);
 
       updateFeishuProgress(progressEl, L.feishuStepConvert, 2);
       var docxBlob = convertToDocxBlob(docContent);
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
       pluginLog("info", "Feishu: DOCX blob created: " + docxBlob.size + " bytes");
 
       updateFeishuProgress(progressEl, L.feishuStepAuth, 3);
-      var token = await getFeishuTenantToken();
+      var token = await getFeishuTenantToken(signal);
 
       var session = getFeishuSession(sessionKey);
       if (session && session.feishu_doc_token) {
@@ -60,17 +64,18 @@
         await feishuDeleteDoc(token, session.feishu_doc_token);
       }
 
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
       updateFeishuProgress(progressEl, L.feishuStepUpload, 4);
-      var fileToken = await feishuUploadBlob(token, docxBlob, title + ".docx");
+      var fileToken = await feishuUploadBlob(token, docxBlob, title + ".docx", signal);
       pluginLog("info", "Feishu: uploaded, file_token: " + fileToken);
 
       var folderToken = (cfg.feishu && cfg.feishu.target_folder) || "";
       updateFeishuProgress(progressEl, L.feishuStepImport, 5);
-      var ticket = await feishuCreateImportTask(token, fileToken, title, folderToken);
+      var ticket = await feishuCreateImportTask(token, fileToken, title, folderToken, signal);
       pluginLog("info", "Feishu: import task created, ticket: " + ticket);
 
       updateFeishuProgress(progressEl, L.feishuStepPoll, 5);
-      var result = await feishuPollImportResult(token, ticket);
+      var result = await feishuPollImportResult(token, ticket, signal);
       pluginLog("info", "Feishu: import done, url: " + result.url);
 
       setFeishuSession(sessionKey, {
@@ -79,6 +84,7 @@
         feishu_doc_url: result.url,
         last_archived_at: new Date().toISOString(),
         content_cache: docContent.slice(0, 5000),
+        full_content: docContent,
       });
 
       removeFeishuProgress(progressEl);
@@ -86,8 +92,13 @@
 
     } catch (e) {
       removeFeishuProgress(progressEl);
-      pluginLog("error", "Feishu archive failed: " + e.message);
-      showToast(L.feishuFailed + e.message, "error", 5000);
+      if (e.name === "AbortError") {
+        pluginLog("info", "Feishu archive stopped by user");
+        showToast(L.feishuStopped, "info");
+      } else {
+        pluginLog("error", "Feishu archive failed: " + e.message);
+        showToast(L.feishuFailed + e.message, "error", 5000);
+      }
     }
   }
 
@@ -96,6 +107,8 @@
   function showFeishuProgress() {
     var old = document.getElementById("ai-feishu-progress");
     if (old) old.remove();
+
+    var ac = new AbortController();
 
     var el = document.createElement("div");
     el.id = "ai-feishu-progress";
@@ -108,10 +121,16 @@
           buildStepHTML(4) + buildStepHTML(5) +
         '</div>' +
         '<div class="ai-feishu-status"></div>' +
+        '<button class="ai-feishu-stop">' + escHTML(L.feishuStop) + '</button>' +
       '</div>';
+
+    el.querySelector(".ai-feishu-stop").addEventListener("click", function () {
+      ac.abort();
+    });
+
     document.body.appendChild(el);
     requestAnimationFrame(function () { el.classList.add("show"); });
-    return el;
+    return { el: el, signal: ac.signal };
   }
 
   function buildStepHTML(n) {
@@ -310,8 +329,12 @@
       html += '<span class="ai-docmgr-local">' + escHTML(localName) + '</span>';
       html += '</div>';
       html += '</div>';
+      html += '<div class="ai-docmgr-actions">';
+      html += '<button class="ai-docmgr-edit" data-key="' + escHTML(key) + '">' +
+              escHTML(L.feishuDocEdit) + '</button>';
       html += '<button class="ai-docmgr-del" data-key="' + escHTML(key) + '" title="' + escHTML(L.feishuDocDelete) + '">' +
               escHTML(L.feishuDocDelete) + '</button>';
+      html += '</div>';
       html += '</div>';
     }
     html += '</div>';
@@ -338,6 +361,13 @@
     });
     if (nextBtn) nextBtn.addEventListener("click", function () {
       if (_docMgrState.page < totalPages) { _docMgrState.page++; renderDocList(container); }
+    });
+
+    container.querySelectorAll(".ai-docmgr-edit").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var k = btn.getAttribute("data-key");
+        handleDocEdit(btn, k);
+      });
     });
 
     container.querySelectorAll(".ai-docmgr-del").forEach(function (btn) {
@@ -385,4 +415,182 @@
       return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
         " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
     } catch (_) { return iso; }
+  }
+
+  // ===================== Feishu: Edit & Save-back =====================
+
+  var _feishuEditState = null;
+
+  function handleDocEdit(btn, sessionKey) {
+    var sessions = loadFeishuSessions();
+    var session = sessions[sessionKey];
+    if (!session) return;
+
+    var content = session.full_content || session.content_cache || "";
+    if (!content) {
+      showToast(L.feishuDocEditNoContent, "error", 3000);
+      return;
+    }
+
+    btn.textContent = L.feishuDocEditing;
+    btn.disabled = true;
+
+    try {
+      var fs = null;
+      try { fs = (window.reqnode || require)("fs"); } catch (_) {}
+
+      var filePath = (window.File && window.File.filePath) || null;
+
+      if (filePath && fs) {
+        fs.writeFileSync(filePath, content, "utf8");
+      } else if (fs) {
+        var os = null;
+        try { os = (window.reqnode || require)("os"); } catch (_) {}
+        var tmpDir = (os && os.tmpdir()) || "/tmp";
+        var safeName = (session.title || "feishu-doc").replace(/[^\w\u4e00-\u9fff-]/g, "_");
+        filePath = tmpDir + "/" + safeName + ".md";
+        fs.writeFileSync(filePath, content, "utf8");
+        if (window.File && typeof window.File.editor !== "undefined") {
+          window.open("file://" + filePath);
+        }
+      }
+
+      if (filePath) {
+        _feishuEditState = {
+          sessionKey: sessionKey,
+          title: session.title,
+          feishu_doc_token: session.feishu_doc_token,
+          feishu_doc_url: session.feishu_doc_url,
+        };
+
+        setTimeout(function () {
+          try {
+            if (window.File && typeof window.File.reloadContent === "function") {
+              window.File.reloadContent(true, function () {});
+            } else if (window.File && window.File.editor && typeof window.File.editor.reload === "function") {
+              window.File.editor.reload();
+            }
+          } catch (_) {}
+        }, 200);
+
+        showFeishuEditBar();
+
+        var overlay = document.querySelector(".ai-edit-overlay.ai-docmgr-overlay");
+        if (overlay) overlay.remove();
+
+        pluginLog("info", "Feishu doc loaded for editing: " + session.title);
+        showToast(L.feishuDocEditLoaded, "success");
+      }
+    } catch (e) {
+      pluginLog("error", "Feishu doc edit load failed: " + e.message);
+      showToast(L.feishuDocEditFail + e.message, "error", 4000);
+      btn.textContent = L.feishuDocEdit;
+      btn.disabled = false;
+    }
+  }
+
+  function showFeishuEditBar() {
+    removeFeishuEditBar();
+    if (!_feishuEditState) return;
+
+    var bar = document.createElement("div");
+    bar.id = "ai-feishu-edit-bar";
+    bar.className = "ai-feishu-edit-bar";
+    bar.innerHTML =
+      '<span class="ai-feishu-edit-bar-text">' +
+        escHTML(L.feishuDocSaveBackTip.replace("{title}", _feishuEditState.title)) +
+      '</span>' +
+      '<div class="ai-feishu-edit-bar-actions">' +
+        '<button class="ai-feishu-edit-bar-save">' + escHTML(L.feishuDocSaveBack) + '</button>' +
+        '<button class="ai-feishu-edit-bar-close">&times;</button>' +
+      '</div>';
+
+    bar.querySelector(".ai-feishu-edit-bar-save").addEventListener("click", function () {
+      saveBackToFeishu();
+    });
+    bar.querySelector(".ai-feishu-edit-bar-close").addEventListener("click", function () {
+      _feishuEditState = null;
+      removeFeishuEditBar();
+    });
+
+    document.body.appendChild(bar);
+    requestAnimationFrame(function () { bar.classList.add("show"); });
+  }
+
+  function removeFeishuEditBar() {
+    var bar = document.getElementById("ai-feishu-edit-bar");
+    if (bar) bar.remove();
+  }
+
+  async function saveBackToFeishu() {
+    if (!_feishuEditState) return;
+
+    var docContent = getDocumentText();
+    if (!docContent || !docContent.trim()) {
+      showToast(L.feishuNoContent, "error");
+      return;
+    }
+
+    var creds = loadFeishuCredentials();
+    if (!creds) {
+      showToast(L.feishuNoCreds, "error", 5000);
+      return;
+    }
+
+    var cfg = loadConfig();
+    var editState = _feishuEditState;
+    var progress = showFeishuProgress();
+    var progressEl = progress.el;
+    var signal = progress.signal;
+
+    try {
+      updateFeishuProgress(progressEl, L.feishuStepConvert, 2);
+      var docxBlob = convertToDocxBlob(docContent);
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+
+      updateFeishuProgress(progressEl, L.feishuStepAuth, 3);
+      var token = await getFeishuTenantToken(signal);
+
+      if (editState.feishu_doc_token) {
+        updateFeishuProgress(progressEl, L.feishuStepDelete, 3);
+        await feishuDeleteDoc(token, editState.feishu_doc_token);
+      }
+
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+      updateFeishuProgress(progressEl, L.feishuStepUpload, 4);
+      var fileToken = await feishuUploadBlob(token, docxBlob, editState.title + ".docx", signal);
+
+      var folderToken = (cfg.feishu && cfg.feishu.target_folder) || "";
+      updateFeishuProgress(progressEl, L.feishuStepImport, 5);
+      var ticket = await feishuCreateImportTask(token, fileToken, editState.title, folderToken, signal);
+
+      updateFeishuProgress(progressEl, L.feishuStepPoll, 5);
+      var result = await feishuPollImportResult(token, ticket, signal);
+
+      setFeishuSession(editState.sessionKey, {
+        title: editState.title,
+        feishu_doc_token: result.token,
+        feishu_doc_url: result.url,
+        last_archived_at: new Date().toISOString(),
+        content_cache: docContent.slice(0, 5000),
+        full_content: docContent,
+      });
+
+      _feishuEditState.feishu_doc_token = result.token;
+      _feishuEditState.feishu_doc_url = result.url;
+
+      removeFeishuProgress(progressEl);
+      showToast(L.feishuDocSaved, "success");
+      pluginLog("info", "Feishu doc updated: " + editState.title + " → " + result.url);
+
+    } catch (e) {
+      removeFeishuProgress(progressEl);
+      if (e.name === "AbortError") {
+        pluginLog("info", "Feishu save-back stopped by user");
+        showToast(L.feishuStopped, "info");
+      } else {
+        pluginLog("error", "Feishu save-back failed: " + e.message);
+        showToast(L.feishuFailed + e.message, "error", 5000);
+      }
+    }
   }

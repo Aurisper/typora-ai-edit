@@ -41,7 +41,7 @@
 
   // ===================== Auth =====================
 
-  async function getFeishuTenantToken() {
+  async function getFeishuTenantToken(signal) {
     if (feishuTokenCache.token && Date.now() < feishuTokenCache.expiresAt) {
       return feishuTokenCache.token;
     }
@@ -49,11 +49,14 @@
     var creds = loadFeishuCredentials();
     if (!creds) throw new Error(L.feishuNoCreds);
 
-    var resp = await fetch(FEISHU_API + "/auth/v3/tenant_access_token/internal", {
+    var opts = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ app_id: creds.app_id, app_secret: creds.app_secret }),
-    });
+    };
+    if (signal) opts.signal = signal;
+
+    var resp = await fetch(FEISHU_API + "/auth/v3/tenant_access_token/internal", opts);
 
     var data = await resp.json();
     if (data.code !== 0) throw new Error("Feishu auth failed: " + data.msg);
@@ -94,7 +97,7 @@
 
   // ===================== Feishu API calls =====================
 
-  async function feishuUploadBlob(token, blob, fileName) {
+  async function feishuUploadBlob(token, blob, fileName, signal) {
     var fileSize = blob.size;
     if (fileSize > 20 * 1024 * 1024) throw new Error(L.feishuFileTooLarge);
 
@@ -105,18 +108,21 @@
     formData.append("extra", JSON.stringify({ obj_type: "docx", file_extension: "docx" }));
     formData.append("file", blob, fileName);
 
-    var resp = await fetch(FEISHU_API + "/drive/v1/medias/upload_all", {
+    var opts = {
       method: "POST",
       headers: { Authorization: "Bearer " + token },
       body: formData,
-    });
+    };
+    if (signal) opts.signal = signal;
+
+    var resp = await fetch(FEISHU_API + "/drive/v1/medias/upload_all", opts);
 
     var data = await resp.json();
     if (data.code !== 0) throw new Error("Upload failed (" + data.code + "): " + data.msg);
     return data.data.file_token;
   }
 
-  async function feishuCreateImportTask(token, fileToken, title, folderToken) {
+  async function feishuCreateImportTask(token, fileToken, title, folderToken, signal) {
     var body = {
       file_extension: "docx",
       file_token: fileToken,
@@ -125,28 +131,37 @@
       point: { mount_type: 1, mount_key: folderToken || "" },
     };
 
-    var resp = await fetch(FEISHU_API + "/drive/v1/import_tasks", {
+    var opts = {
       method: "POST",
       headers: {
         Authorization: "Bearer " + token,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
-    });
+    };
+    if (signal) opts.signal = signal;
+
+    var resp = await fetch(FEISHU_API + "/drive/v1/import_tasks", opts);
 
     var data = await resp.json();
     if (data.code !== 0) throw new Error("Import task failed (" + data.code + "): " + data.msg);
     return data.data.ticket;
   }
 
-  async function feishuPollImportResult(token, ticket) {
+  async function feishuPollImportResult(token, ticket, signal) {
     var maxAttempts = 30;
     for (var i = 0; i < maxAttempts; i++) {
+      if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
       await sleep(2000);
-      var resp = await fetch(FEISHU_API + "/drive/v1/import_tasks/" + ticket, {
+      if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
+
+      var opts = {
         method: "GET",
         headers: { Authorization: "Bearer " + token },
-      });
+      };
+      if (signal) opts.signal = signal;
+
+      var resp = await fetch(FEISHU_API + "/drive/v1/import_tasks/" + ticket, opts);
 
       var data = await resp.json();
       if (data.code !== 0) throw new Error("Poll failed (" + data.code + "): " + data.msg);
