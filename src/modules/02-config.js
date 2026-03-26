@@ -39,11 +39,11 @@
             user: "请详细分析和描述以下图片。提供全面的解读，包括关键元素、背景信息以及图中可见的文字。",
           },
           qa: {
-            system: "你是一位知识渊博的 AI 助手，擅长回答各类问题。请用 Markdown 格式回答。",
+            system: "你是一位知识渊博的 AI 助手，擅长回答各类问题。请用纯文本格式回答，不要使用任何 Markdown 标记（如标题 #、加粗 **、列表 - 等）。直接以自然段落形式回答。",
             user: "{question}",
           },
           qa_with_context: {
-            system: "你是一位知识渊博的 AI 助手。以下是用户正在编辑的完整文档，请结合文档上下文来回答用户的问题。请用 Markdown 格式回答。",
+            system: "你是一位知识渊博的 AI 助手。以下是用户正在编辑的完整文档，请结合文档上下文来回答用户的问题。请用纯文本格式回答，不要使用任何 Markdown 标记（如标题 #、加粗 **、列表 - 等）。直接以自然段落形式回答。",
             user: "完整文档：\n\n<document>\n{document}\n</document>\n\n用户问题：\n{question}",
           },
         }
@@ -61,11 +61,11 @@
             user: "Please analyze and describe the following image in detail. Provide a comprehensive interpretation including key elements, context, and any text visible in the image.",
           },
           qa: {
-            system: "You are a knowledgeable AI assistant skilled at answering all kinds of questions. Please respond in Markdown format.",
+            system: "You are a knowledgeable AI assistant skilled at answering all kinds of questions. Please respond in plain text without any Markdown formatting (no headings #, bold **, lists -, etc.). Answer in natural paragraphs.",
             user: "{question}",
           },
           qa_with_context: {
-            system: "You are a knowledgeable AI assistant. Below is the full document the user is editing. Please answer the user's question with the document as context. Respond in Markdown format.",
+            system: "You are a knowledgeable AI assistant. Below is the full document the user is editing. Please answer the user's question with the document as context. Please respond in plain text without any Markdown formatting (no headings #, bold **, lists -, etc.). Answer in natural paragraphs.",
             user: "Full document:\n\n<document>\n{document}\n</document>\n\nUser question:\n{question}",
           },
         },

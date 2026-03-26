@@ -372,11 +372,11 @@
             user: "请详细分析和描述以下图片。提供全面的解读，包括关键元素、背景信息以及图中可见的文字。",
           },
           qa: {
-            system: "你是一位知识渊博的 AI 助手，擅长回答各类问题。请用 Markdown 格式回答。",
+            system: "你是一位知识渊博的 AI 助手，擅长回答各类问题。请用纯文本格式回答，不要使用任何 Markdown 标记（如标题 #、加粗 **、列表 - 等）。直接以自然段落形式回答。",
             user: "{question}",
           },
           qa_with_context: {
-            system: "你是一位知识渊博的 AI 助手。以下是用户正在编辑的完整文档，请结合文档上下文来回答用户的问题。请用 Markdown 格式回答。",
+            system: "你是一位知识渊博的 AI 助手。以下是用户正在编辑的完整文档，请结合文档上下文来回答用户的问题。请用纯文本格式回答，不要使用任何 Markdown 标记（如标题 #、加粗 **、列表 - 等）。直接以自然段落形式回答。",
             user: "完整文档：\n\n<document>\n{document}\n</document>\n\n用户问题：\n{question}",
           },
         }
@@ -394,11 +394,11 @@
             user: "Please analyze and describe the following image in detail. Provide a comprehensive interpretation including key elements, context, and any text visible in the image.",
           },
           qa: {
-            system: "You are a knowledgeable AI assistant skilled at answering all kinds of questions. Please respond in Markdown format.",
+            system: "You are a knowledgeable AI assistant skilled at answering all kinds of questions. Please respond in plain text without any Markdown formatting (no headings #, bold **, lists -, etc.). Answer in natural paragraphs.",
             user: "{question}",
           },
           qa_with_context: {
-            system: "You are a knowledgeable AI assistant. Below is the full document the user is editing. Please answer the user's question with the document as context. Respond in Markdown format.",
+            system: "You are a knowledgeable AI assistant. Below is the full document the user is editing. Please answer the user's question with the document as context. Please respond in plain text without any Markdown formatting (no headings #, bold **, lists -, etc.). Answer in natural paragraphs.",
             user: "Full document:\n\n<document>\n{document}\n</document>\n\nUser question:\n{question}",
           },
         },
@@ -2108,8 +2108,8 @@
 
       if (codeCtx) {
         systemPrompt = isChinese
-          ? "你是一位编程助手。用户正在编辑一个代码块。如果用户要求修改代码，请直接返回完整的修改后代码，不要添加任何解释、markdown 标记或代码围栏（```）。如果用户询问关于代码的问题，请用 Markdown 格式回答。"
-          : "You are a coding assistant. The user is editing a code block. If the user asks to modify the code, return ONLY the complete modified code without any explanation, markdown formatting, or code fences (```). If the user asks a question about the code, respond in Markdown format.";
+          ? "你是一位编程助手。用户正在编辑一个代码块。如果用户要求修改代码，请直接返回完整的修改后代码，不要添加任何解释、markdown 标记或代码围栏（```）。如果用户询问关于代码的问题，请用纯文本格式回答，不要使用任何 Markdown 标记。"
+          : "You are a coding assistant. The user is editing a code block. If the user asks to modify the code, return ONLY the complete modified code without any explanation, markdown formatting, or code fences (```). If the user asks a question about the code, respond in plain text without any Markdown formatting.";
         userPrompt = (isChinese ? "代码块内容：\n\n" : "Code block:\n\n") +
           codeCtx.source + "\n\n" +
           (isChinese ? "用户要求：" : "User request: ") + question;
@@ -2162,9 +2162,7 @@
   }
 
   function insertQAResponse(text, targetEl) {
-    var lines = text.split("\n");
-    var quoted = lines.map(function (l) { return "> " + l; }).join("\n");
-    quoted = "\n\n" + quoted + "\n\n";
+    var quoted = "\n\n" + text + "\n\n";
 
     try {
       var writeEl = document.getElementById("write");

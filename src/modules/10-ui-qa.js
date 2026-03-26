@@ -92,8 +92,8 @@
 
       if (codeCtx) {
         systemPrompt = isChinese
-          ? "你是一位编程助手。用户正在编辑一个代码块。如果用户要求修改代码，请直接返回完整的修改后代码，不要添加任何解释、markdown 标记或代码围栏（```）。如果用户询问关于代码的问题，请用 Markdown 格式回答。"
-          : "You are a coding assistant. The user is editing a code block. If the user asks to modify the code, return ONLY the complete modified code without any explanation, markdown formatting, or code fences (```). If the user asks a question about the code, respond in Markdown format.";
+          ? "你是一位编程助手。用户正在编辑一个代码块。如果用户要求修改代码，请直接返回完整的修改后代码，不要添加任何解释、markdown 标记或代码围栏（```）。如果用户询问关于代码的问题，请用纯文本格式回答，不要使用任何 Markdown 标记。"
+          : "You are a coding assistant. The user is editing a code block. If the user asks to modify the code, return ONLY the complete modified code without any explanation, markdown formatting, or code fences (```). If the user asks a question about the code, respond in plain text without any Markdown formatting.";
         userPrompt = (isChinese ? "代码块内容：\n\n" : "Code block:\n\n") +
           codeCtx.source + "\n\n" +
           (isChinese ? "用户要求：" : "User request: ") + question;
@@ -146,9 +146,7 @@
   }
 
   function insertQAResponse(text, targetEl) {
-    var lines = text.split("\n");
-    var quoted = lines.map(function (l) { return "> " + l; }).join("\n");
-    quoted = "\n\n" + quoted + "\n\n";
+    var quoted = "\n\n" + text + "\n\n";
 
     try {
       var writeEl = document.getElementById("write");
