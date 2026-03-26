@@ -2917,16 +2917,6 @@
       }
     }, true);
 
-    try {
-      var pendingEdit = localStorage.getItem("typora-ai-edit-feishu-editing");
-      if (pendingEdit) {
-        localStorage.removeItem("typora-ai-edit-feishu-editing");
-        _feishuEditState = JSON.parse(pendingEdit);
-        showFeishuEditBar();
-        pluginLog("info", "Feishu edit state restored: " + _feishuEditState.title);
-      }
-    } catch (_) {}
-
     pluginLog("info", L.loaded);
   }
 
@@ -3574,54 +3564,11 @@
     btn.disabled = true;
 
     try {
-      var _writeFile = null;
-      var _openInTypora = null;
-
-      if (window.bridge && window.bridge.callSync) {
-        _writeFile = function (p, c) { window.bridge.callSync("path.writeText", p, c); };
-      }
-      if (!_writeFile && window.reqnode) {
-        try {
-          var _fs = window.reqnode("fs");
-          if (_fs && _fs.writeFileSync) _writeFile = function (p, c) { _fs.writeFileSync(p, c, "utf8"); };
-        } catch (_) {}
-      }
-      if (!_writeFile && typeof require === "function") {
-        try {
-          var _fs2 = require("fs");
-          if (_fs2 && _fs2.writeFileSync) _writeFile = function (p, c) { _fs2.writeFileSync(p, c, "utf8"); };
-        } catch (_) {}
-      }
-
-      if (!_writeFile) {
-        pluginLog("error", "Feishu edit: no file write method available");
-        showToast(L.feishuDocEditFail + "file write unavailable", "error", 4000);
-        btn.textContent = L.feishuDocEdit;
-        btn.disabled = false;
-        return;
-      }
-
       var filePath = null;
       try { filePath = window.File && window.File.filePath; } catch (_) {}
       if (!filePath) try { filePath = window.File && window.File.bundle && window.File.bundle.filePath; } catch (_) {}
 
-      var needsNavigate = false;
-
-      if (filePath) {
-        _writeFile(filePath, content);
-      } else {
-        var tmpDir = "/tmp";
-        try {
-          if (window.reqnode) tmpDir = window.reqnode("os").tmpdir();
-          else if (typeof require === "function") tmpDir = require("os").tmpdir();
-        } catch (_) {}
-        var safeName = (session.title || "feishu-doc").replace(/[^\w\u4e00-\u9fff-]/g, "_");
-        filePath = tmpDir + "/" + safeName + ".md";
-        _writeFile(filePath, content);
-        needsNavigate = true;
-      }
-
-      var editState = {
+      _feishuEditState = {
         sessionKey: sessionKey,
         title: session.title,
         feishu_doc_token: session.feishu_doc_token,
@@ -3631,12 +3578,31 @@
       var overlay = document.querySelector(".ai-edit-overlay.ai-docmgr-overlay");
       if (overlay) overlay.remove();
 
-      if (needsNavigate) {
-        localStorage.setItem("typora-ai-edit-feishu-editing", JSON.stringify(editState));
-        pluginLog("info", "Feishu doc: navigating to temp file for: " + session.title);
-        location.href = "file://" + encodeURI(filePath);
-      } else {
-        _feishuEditState = editState;
+      if (filePath) {
+        var _writeFile = null;
+        if (window.bridge && window.bridge.callSync) {
+          _writeFile = function (p, c) { window.bridge.callSync("path.writeText", p, c); };
+        }
+        if (!_writeFile && window.reqnode) {
+          try {
+            var _fs = window.reqnode("fs");
+            if (_fs && _fs.writeFileSync) _writeFile = function (p, c) { _fs.writeFileSync(p, c, "utf8"); };
+          } catch (_) {}
+        }
+        if (!_writeFile && typeof require === "function") {
+          try {
+            var _fs2 = require("fs");
+            if (_fs2 && _fs2.writeFileSync) _writeFile = function (p, c) { _fs2.writeFileSync(p, c, "utf8"); };
+          } catch (_) {}
+        }
+        if (!_writeFile) {
+          pluginLog("error", "Feishu edit: no file write method available");
+          showToast(L.feishuDocEditFail + "file write unavailable", "error", 4000);
+          btn.textContent = L.feishuDocEdit;
+          btn.disabled = false;
+          return;
+        }
+        _writeFile(filePath, content);
         setTimeout(function () {
           try {
             if (window.File && typeof window.File.reloadContent === "function") {
@@ -3647,6 +3613,20 @@
           } catch (_) {}
           showFeishuEditBar();
         }, 200);
+      } else {
+        setTimeout(function () {
+          try {
+            var writeEl = document.getElementById("write");
+            if (writeEl) {
+              writeEl.focus();
+              document.execCommand("selectAll");
+              document.execCommand("insertText", false, content);
+            }
+          } catch (ex) {
+            pluginLog("warn", "execCommand insert failed: " + ex.message);
+          }
+          showFeishuEditBar();
+        }, 100);
       }
 
       pluginLog("info", "Feishu doc loaded for editing: " + session.title +
