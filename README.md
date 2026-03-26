@@ -91,7 +91,7 @@ Ask AI to generate a flowchart — it outputs HTML/CSS/SVG code that Typora rend
 - **Edit Feishu Docs Locally** — Load any archived doc back into Typora for editing, then save back to overwrite the original
 - **Stop Archiving** — Cancel the archive process at any step with a single click
 - **AI Title Generation** — Automatically generates a concise title from your content
-- **Pure JS DOCX** — In-memory Markdown→DOCX conversion, zero external dependencies (no Pandoc)
+- **Pure JS DOCX** — In-memory Markdown→DOCX conversion with image embedding, zero external dependencies (no Pandoc)
 - **Session Management** — Same document overwrites previous version; different documents are isolated
 - **Document Manager** — Browse, search (title + full text), paginate, edit, and delete archived Feishu docs
 - **Operation Log** — View log, one-click copy, one-click clear
@@ -261,7 +261,7 @@ sudo cp src/typora-ai-edit.js \
 | Image Handling | Local → base64, web → download, canvas fallback, auto-compress |
 | Context Menu | Custom HTML overlay on `contextmenu` event |
 | Diagram Rendering | AI generates HTML/CSS/SVG or Mermaid → Typora renders inline |
-| Feishu Online Doc | Pure JS DOCX generation (CRC32+ZIP+OOXML) → `fetch` upload → import API; AbortController for cancellation |
+| Feishu Online Doc | Pure JS DOCX generation (CRC32+ZIP+OOXML) with embedded images (DOM canvas + multi-fallback) → `fetch` upload → import API |
 | Document Manager | Session-based doc list with search, pagination, local editing, save-back, delete |
 | Operation Log | In-memory log store (500 entries) + modal panel with copy/clear |
 
@@ -278,6 +278,19 @@ Please also review our [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Polic
 ## Changelog
 
 <details open>
+<summary><strong>v0.8.1</strong> — DOCX Image Embedding (2026-03-26)</summary>
+
+- **New: Image support in Feishu archive** — Images in Markdown documents are now embedded into the DOCX file and visible in Feishu online docs
+- **New: DOM canvas extraction** — Primary image loading strategy extracts pixel data directly from Typora's rendered `<img>` elements via canvas, bypassing file path resolution issues
+- **New: Multi-fallback image loading** — 4-layer strategy: DOM canvas → resolved file path → `getImageDataUrl` → network fetch; handles local files, `file://` URLs, HTTP URLs, and data URIs
+- **New: HTML `<img>` tag support** — DOCX engine now recognizes both `![alt](url)` and `<img src="...">` image formats
+- **New: Image loading diagnostics** — Toast notification shows image load results (e.g., "2/3 images loaded") with URL details for debugging
+- **Improved: Standard OOXML structure** — Image drawing XML now includes `effectExtent`, `cNvGraphicFramePr`, and proper namespace declarations on the root element for maximum parser compatibility
+- **Fix: Paths with spaces** — Image URLs containing spaces (e.g., `Application Support`) are now handled correctly
+
+</details>
+
+<details>
 <summary><strong>v0.8.0</strong> — Feishu Doc Editing & Archive Control (2026-03-26)</summary>
 
 - **New: Edit Feishu docs locally** — Click "Edit" in the document manager to load an archived doc back into Typora; a blue status bar appears at the top with a "Save to Feishu" button to overwrite the original

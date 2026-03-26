@@ -51,7 +51,7 @@
       pluginLog("info", "Feishu: title generated: " + title);
 
       updateFeishuProgress(progressEl, L.feishuStepConvert, 2);
-      var docxBlob = convertToDocxBlob(docContent);
+      var docxBlob = await convertToDocxBlob(docContent);
       if (signal.aborted) throw new DOMException("Aborted", "AbortError");
       pluginLog("info", "Feishu: DOCX blob created: " + docxBlob.size + " bytes");
 
@@ -578,7 +578,7 @@
 
     try {
       updateFeishuProgress(progressEl, L.feishuStepConvert, 2);
-      var docxBlob = convertToDocxBlob(docContent);
+      var docxBlob = await convertToDocxBlob(docContent);
       if (signal.aborted) throw new DOMException("Aborted", "AbortError");
 
       updateFeishuProgress(progressEl, L.feishuStepAuth, 3);

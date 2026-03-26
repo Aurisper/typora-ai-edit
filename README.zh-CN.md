@@ -91,7 +91,7 @@
 - **本地编辑飞书文档** — 在文档管理器中点击「编辑」将文档加载到 Typora，编辑后一键覆盖更新到飞书
 - **停止归档** — 归档过程中可随时点击「停止」取消操作
 - **AI 标题生成** — 根据文档内容自动生成简洁标题
-- **纯 JS DOCX 引擎** — 内存中 Markdown→DOCX 转换，零外部依赖（无需 Pandoc）
+- **纯 JS DOCX 引擎** — 内存中 Markdown→DOCX 转换（含图片嵌入），零外部依赖（无需 Pandoc）
 - **Session 管理** — 同文档覆盖更新，不同文档独立管理
 - **文档管理器** — 浏览、搜索（标题 + 全文）、分页、编辑、删除已归档的飞书文档
 - **操作日志面板** — 查看日志、一键复制、一键清除
@@ -261,7 +261,7 @@ sudo cp src/typora-ai-edit.js \
 | 图片处理 | 本地 → base64，网络 → 下载，canvas 兜底，自动压缩 |
 | 右键菜单 | 拦截 `contextmenu` 事件，自定义 HTML 浮层 |
 | 图表渲染 | AI 生成 HTML/CSS/SVG 或 Mermaid → Typora 内联渲染 |
-| 飞书在线文档 | 纯 JS DOCX 生成（CRC32+ZIP+OOXML）→ `fetch` 上传 → 导入 API；AbortController 支持取消 |
+| 飞书在线文档 | 纯 JS DOCX 生成（CRC32+ZIP+OOXML，含图片嵌入：DOM canvas + 多重回退）→ `fetch` 上传 → 导入 API |
 | 文档管理器 | Session 文档列表 + 搜索 + 分页 + 本地编辑 + 回写覆盖 + 删除 |
 | 操作日志 | 内存日志存储（500 条）+ 模态面板，支持复制/清除 |
 
@@ -278,6 +278,19 @@ sudo cp src/typora-ai-edit.js \
 ## 更新日志
 
 <details open>
+<summary><strong>v0.8.1</strong> — DOCX 图片嵌入 (2026-03-26)</summary>
+
+- **新增：飞书归档支持图片** — Markdown 文档中的图片现在会嵌入到 DOCX 文件中，在飞书在线文档中可直接查看
+- **新增：DOM canvas 提取** — 主要图片加载策略：直接从 Typora 已渲染的 `<img>` 元素通过 canvas 提取像素数据，绕过文件路径解析问题
+- **新增：多重回退图片加载** — 4 层策略：DOM canvas → 解析后的文件路径 → getImageDataUrl → 网络下载；支持本地文件、`file://` URL、HTTP URL 和 data URI
+- **新增：HTML `<img>` 标签支持** — DOCX 引擎同时识别 `![alt](url)` 和 `<img src="...">` 两种图片格式
+- **新增：图片加载诊断** — Toast 提示显示图片加载结果（如 "2/3 images loaded"），含 URL 详情便于排查
+- **优化：标准 OOXML 结构** — 图片 Drawing XML 增加 `effectExtent`、`cNvGraphicFramePr` 等标准元素，命名空间统一声明在根元素，提升解析器兼容性
+- **修复：含空格路径** — 图片 URL 中包含空格（如 `Application Support`）现已正确处理
+
+</details>
+
+<details>
 <summary><strong>v0.8.0</strong> — 飞书文档编辑 & 归档控制 (2026-03-26)</summary>
 
 - **新增：本地编辑飞书文档** — 在文档管理器中点击「编辑」，将已归档文档加载到 Typora 编辑器；顶部出现蓝色状态条，点击「保存到飞书」即可覆盖更新原文档

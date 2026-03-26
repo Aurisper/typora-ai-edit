@@ -91,8 +91,8 @@
 
   // ===================== DOCX conversion (in-memory) =====================
 
-  function convertToDocxBlob(mdContent) {
-    return markdownToDocxBlob(mdContent);
+  async function convertToDocxBlob(mdContent) {
+    return await markdownToDocxBlob(mdContent);
   }
 
   // ===================== Feishu API calls =====================
