@@ -426,7 +426,12 @@
     var session = sessions[sessionKey];
     if (!session) return;
 
-    var content = session.full_content || session.content_cache || "";
+    var content = session.full_content || "";
+    var isPartial = false;
+    if (!content && session.content_cache) {
+      content = session.content_cache;
+      isPartial = true;
+    }
     if (!content) {
       showToast(L.feishuDocEditNoContent, "error", 3000);
       return;
@@ -438,31 +443,46 @@
     try {
       var fs = null;
       try { fs = (window.reqnode || require)("fs"); } catch (_) {}
+      if (!fs) {
+        showToast(L.feishuDocEditFail + "fs unavailable", "error", 4000);
+        btn.textContent = L.feishuDocEdit;
+        btn.disabled = false;
+        return;
+      }
 
-      var filePath = (window.File && window.File.filePath) || null;
+      var filePath = null;
+      try { filePath = window.File && window.File.filePath; } catch (_) {}
+      if (!filePath) try { filePath = window.File && window.File.bundle && window.File.bundle.filePath; } catch (_) {}
 
-      if (filePath && fs) {
+      var openedNewWindow = false;
+
+      if (filePath) {
         fs.writeFileSync(filePath, content, "utf8");
-      } else if (fs) {
+      } else {
         var os = null;
         try { os = (window.reqnode || require)("os"); } catch (_) {}
         var tmpDir = (os && os.tmpdir()) || "/tmp";
         var safeName = (session.title || "feishu-doc").replace(/[^\w\u4e00-\u9fff-]/g, "_");
         filePath = tmpDir + "/" + safeName + ".md";
         fs.writeFileSync(filePath, content, "utf8");
-        if (window.File && typeof window.File.editor !== "undefined") {
-          window.open("file://" + filePath);
+
+        openedNewWindow = true;
+        try {
+          var cp = (window.reqnode || require)("child_process");
+          cp.exec('open -a Typora "' + filePath.replace(/"/g, '\\"') + '"');
+        } catch (_) {
+          try { window.open("file://" + filePath); } catch (_2) {}
         }
       }
 
-      if (filePath) {
-        _feishuEditState = {
-          sessionKey: sessionKey,
-          title: session.title,
-          feishu_doc_token: session.feishu_doc_token,
-          feishu_doc_url: session.feishu_doc_url,
-        };
+      _feishuEditState = {
+        sessionKey: sessionKey,
+        title: session.title,
+        feishu_doc_token: session.feishu_doc_token,
+        feishu_doc_url: session.feishu_doc_url,
+      };
 
+      if (!openedNewWindow) {
         setTimeout(function () {
           try {
             if (window.File && typeof window.File.reloadContent === "function") {
@@ -472,13 +492,18 @@
             }
           } catch (_) {}
         }, 200);
-
         showFeishuEditBar();
+      }
 
-        var overlay = document.querySelector(".ai-edit-overlay.ai-docmgr-overlay");
-        if (overlay) overlay.remove();
+      var overlay = document.querySelector(".ai-edit-overlay.ai-docmgr-overlay");
+      if (overlay) overlay.remove();
 
-        pluginLog("info", "Feishu doc loaded for editing: " + session.title);
+      pluginLog("info", "Feishu doc loaded for editing: " + session.title +
+        (isPartial ? " (partial content)" : ""));
+
+      if (isPartial) {
+        showToast(L.feishuDocEditPartial, "info", 4000);
+      } else {
         showToast(L.feishuDocEditLoaded, "success");
       }
     } catch (e) {
