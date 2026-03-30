@@ -125,6 +125,10 @@
       '<input type="text" id="ai-s-feishu-folder" class="ai-text-input" value="' +
       escHTML(cfg.feishu.target_folder || "") + '" />' +
       '<p class="ai-edit-hint">' + escHTML(L.feishuFolderHint) + '</p>' +
+      "<label>" + escHTML(L.feishuDefaultEditor) + "</label>" +
+      '<input type="text" id="ai-s-feishu-editor-userid" class="ai-text-input" placeholder="9ddf747a" value="' +
+      escHTML((cfg.feishu && cfg.feishu.default_editor_userid) || "") + '" />' +
+      '<p class="ai-edit-hint">' + escHTML(L.feishuDefaultEditorHint) + '</p>' +
 
       "</div>" +
       '<div class="ai-edit-panel-footer">' +

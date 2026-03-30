@@ -154,6 +154,10 @@
         feishuAppSecret: "App Secret",
         feishuTargetFolder: "目标文件夹 Token（可选）",
         feishuFolderHint: "在飞书云盘中创建文件夹，从 URL 获取 folder token",
+        feishuDefaultEditor: "默认可编辑用户（飞书 user_id，可选）",
+        feishuDefaultEditorHint:
+          "保存到飞书成功后，自动将该用户加为协作者（可编辑）。user_id 在管理后台通讯录用户详情可见。需开通「添加云文档协作者」等权限；失败时请「添加文档应用」或手动分享。",
+        feishuGrantEditFail: "自动添加可编辑协作者失败，请手动「分享」文档或查看控制台日志",
         feishuDocManager: "飞书文档管理",
         feishuDocEmpty: "暂无已归档文档",
         feishuDocNoMatch: "无匹配文档",
@@ -180,6 +184,11 @@
         feishuDocNext: "下一页",
         feishuDocPageInfo: "第 {page} / {total} 页",
         feishuDocCount: "共 {count} 篇文档",
+        feishuDocRefresh: "刷新标题",
+        feishuDocRefreshing: "同步中…",
+        feishuDocRefreshDone: "已从飞书同步 {n} 篇文档标题",
+        feishuDocRefreshFail: "同步标题失败: ",
+        feishuDocRefreshNothing: "没有带飞书文档 token 的记录，无法同步",
         logTitle: "操作日志",
         logMenu: "查看日志",
         logEmpty: "暂无日志",
@@ -335,6 +344,10 @@
         feishuAppSecret: "App Secret",
         feishuTargetFolder: "Target Folder Token (optional)",
         feishuFolderHint: "Create a folder in Feishu Drive, copy folder token from URL",
+        feishuDefaultEditor: "Default editor (Feishu user_id, optional)",
+        feishuDefaultEditorHint:
+          "After save to Feishu, add this user as collaborator (edit). Find user_id in Admin → Contacts. Enable docs:permission.member:create; if it fails, use \"Add doc app\" on the doc or share manually.",
+        feishuGrantEditFail: "Could not auto-add editor — share the doc manually or check DevTools logs",
         feishuDocManager: "Feishu Documents",
         feishuDocEmpty: "No archived documents yet",
         feishuDocNoMatch: "No matching documents",
@@ -361,6 +374,11 @@
         feishuDocNext: "Next",
         feishuDocPageInfo: "Page {page} / {total}",
         feishuDocCount: "{count} document(s)",
+        feishuDocRefresh: "Refresh titles",
+        feishuDocRefreshing: "Syncing…",
+        feishuDocRefreshDone: "Synced titles for {n} document(s) from Feishu",
+        feishuDocRefreshFail: "Failed to sync titles: ",
+        feishuDocRefreshNothing: "No entries with a Feishu doc token to sync",
         logTitle: "Operation Log",
         logMenu: "View Log",
         logEmpty: "No logs yet",
@@ -453,32 +471,60 @@
       app_id: "",
       app_secret: "",
       target_folder: "",
+      default_editor_userid: "",
     },
   };
 
+  function mergeConfigLayer(base, patch) {
+    if (!patch || typeof patch !== "object") return base;
+    return {
+      ...base,
+      ...patch,
+      prompts: { ...base.prompts, ...(patch.prompts || {}) },
+      shortcuts: { ...base.shortcuts, ...(patch.shortcuts || {}) },
+      openai_compat: { ...base.openai_compat, ...(patch.openai_compat || {}) },
+      tavily: { ...base.tavily, ...(patch.tavily || {}) },
+      feishu: { ...base.feishu, ...(patch.feishu || {}) },
+    };
+  }
+
   function loadConfig() {
+    var cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
     try {
-      const saved = localStorage.getItem(CONFIG_KEY);
+      var saved = localStorage.getItem(CONFIG_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_CONFIG,
-          ...parsed,
-          prompts: { ...DEFAULT_CONFIG.prompts, ...(parsed.prompts || {}) },
-          shortcuts: { ...DEFAULT_CONFIG.shortcuts, ...(parsed.shortcuts || {}) },
-          openai_compat: { ...DEFAULT_CONFIG.openai_compat, ...(parsed.openai_compat || {}) },
-          tavily: { ...DEFAULT_CONFIG.tavily, ...(parsed.tavily || {}) },
-          feishu: { ...DEFAULT_CONFIG.feishu, ...(parsed.feishu || {}) },
-        };
+        cfg = mergeConfigLayer(cfg, JSON.parse(saved));
       }
     } catch (e) {
-      console.error("[AI Edit] loadConfig:", e);
+      console.error("[AI Edit] loadConfig localStorage:", e);
     }
-    return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    try {
+      var privPath = typeof getPrivateConfigPath === "function" ? getPrivateConfigPath() : null;
+      if (privPath && typeof readFileContent === "function") {
+        var raw = readFileContent(privPath);
+        if (raw && raw.trim()) {
+          cfg = mergeConfigLayer(cfg, JSON.parse(raw));
+        }
+      }
+    } catch (e2) {
+      console.warn("[AI Edit] loadConfig private file:", e2);
+    }
+    return cfg;
   }
 
   function saveConfig(cfg) {
-    localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+    var json = JSON.stringify(cfg);
+    localStorage.setItem(CONFIG_KEY, json);
+    try {
+      var privPath = typeof getPrivateConfigPath === "function" ? getPrivateConfigPath() : null;
+      if (privPath && typeof writeFileContent === "function") {
+        if (!writeFileContent(privPath, JSON.stringify(cfg, null, 2))) {
+          console.warn("[AI Edit] Private config not written (no file backend):", privPath);
+        }
+      }
+    } catch (e) {
+      console.warn("[AI Edit] saveConfig private file:", e);
+    }
   }
 
   // ===================== Platform: File I/O, Token, Image =====================
@@ -556,6 +602,42 @@
       }
     } catch (_) {}
     return null;
+  }
+
+  /** Write UTF-8 text; returns true on success. */
+  function writeFileContent(filePath, content) {
+    if (window.bridge && window.bridge.callSync) {
+      try {
+        window.bridge.callSync("path.writeText", filePath, content);
+        return true;
+      } catch (e) {
+        console.warn("[AI Edit] bridge.writeText failed:", e);
+      }
+    }
+    if (window.reqnode) {
+      try {
+        var fs = window.reqnode("fs");
+        if (fs && fs.writeFileSync) {
+          fs.writeFileSync(filePath, content, "utf8");
+          return true;
+        }
+      } catch (e) {
+        console.warn("[AI Edit] reqnode write failed:", e);
+      }
+    }
+    try {
+      if (typeof require === "function") {
+        require("fs").writeFileSync(filePath, content, "utf8");
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /** Full settings JSON outside the repo (never commit). */
+  function getPrivateConfigPath() {
+    var home = getHomePath();
+    return home ? home + "/.typora-ai-edit.local.json" : null;
   }
 
   function readToken() {
@@ -2459,6 +2541,10 @@
       '<input type="text" id="ai-s-feishu-folder" class="ai-text-input" value="' +
       escHTML(cfg.feishu.target_folder || "") + '" />' +
       '<p class="ai-edit-hint">' + escHTML(L.feishuFolderHint) + '</p>' +
+      "<label>" + escHTML(L.feishuDefaultEditor) + "</label>" +
+      '<input type="text" id="ai-s-feishu-editor-userid" class="ai-text-input" placeholder="9ddf747a" value="' +
+      escHTML((cfg.feishu && cfg.feishu.default_editor_userid) || "") + '" />' +
+      '<p class="ai-edit-hint">' + escHTML(L.feishuDefaultEditorHint) + '</p>' +
 
       "</div>" +
       '<div class="ai-edit-panel-footer">' +
@@ -2528,6 +2614,7 @@
     cfg.feishu.app_id = document.getElementById("ai-s-feishu-appid").value.trim();
     cfg.feishu.app_secret = document.getElementById("ai-s-feishu-secret").value.trim();
     cfg.feishu.target_folder = document.getElementById("ai-s-feishu-folder").value.trim();
+    cfg.feishu.default_editor_userid = document.getElementById("ai-s-feishu-editor-userid").value.trim();
     saveConfig(cfg);
     pluginLog("info", "Settings saved");
     overlay.remove();
@@ -2552,6 +2639,7 @@
     document.getElementById("ai-s-feishu-appid").value = "";
     document.getElementById("ai-s-feishu-secret").value = "";
     document.getElementById("ai-s-feishu-folder").value = "";
+    document.getElementById("ai-s-feishu-editor-userid").value = "";
     showToast(L.restored, "info");
   }
 
@@ -2911,6 +2999,13 @@
       "font-family:-apple-system,BlinkMacSystemFont,sans-serif;transition:border-color .2s;margin-bottom:12px}",
       ".ai-docmgr-search-input:focus{border-color:#1a73e8}",
       ".ai-docmgr-status{padding:8px 20px 4px;font-size:11px;color:#999}",
+      ".ai-docmgr-status-row{display:flex;align-items:center;justify-content:space-between;gap:12px}",
+      ".ai-docmgr-count{flex:1;min-width:0}",
+      ".ai-docmgr-refresh{padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer;",
+      "border:1px solid #d2e3fc;background:#fff;color:#1a73e8;font-weight:500;",
+      "transition:all .15s;white-space:nowrap;flex-shrink:0;font-family:-apple-system,BlinkMacSystemFont,sans-serif}",
+      ".ai-docmgr-refresh:hover:not(:disabled){background:#e8f0fe;border-color:#aecbfa}",
+      ".ai-docmgr-refresh:disabled{opacity:.6;cursor:default}",
       ".ai-docmgr-badge{font-size:10px;padding:1px 6px;border-radius:4px;margin-left:8px;",
       "font-weight:500;vertical-align:middle}",
       ".ai-docmgr-badge-title{color:#1a73e8;background:rgba(26,115,232,.08)}",
@@ -2950,6 +3045,8 @@
       ".ai-docmgr-edit:hover{background:#444;border-color:#666}",
       ".ai-docmgr-del{background:#3a3a3a;border-color:#555;color:#f28b82}",
       ".ai-docmgr-del:hover{background:#4a2a2a;border-color:#f28b82}",
+      ".ai-docmgr-refresh{background:#3a3a3a;border-color:#555;color:#8ab4f8}",
+      ".ai-docmgr-refresh:hover:not(:disabled){background:#444;border-color:#666}",
       ".ai-docmgr-search{border-color:rgba(255,255,255,.08)}",
       ".ai-docmgr-search-input{background:#333;border-color:#555;color:#ddd}",
       ".ai-docmgr-search-input:focus{border-color:#4a9eff}",
@@ -3237,6 +3334,75 @@
     }
   }
 
+  /**
+   * Batch query cloud doc metadata (title, url). Requires drive:drive or drive:drive.metadata:readonly.
+   * @param {Array<{doc_token:string,doc_type?:string}>} requestDocs doc_type defaults to docx
+   */
+  async function feishuBatchQueryMetas(tenantToken, requestDocs, signal) {
+    if (!requestDocs || !requestDocs.length) return { metas: [], failed_list: [] };
+    var body = {
+      request_docs: requestDocs.map(function (d) {
+        return { doc_token: d.doc_token, doc_type: d.doc_type || "docx" };
+      }),
+      with_url: true,
+    };
+    var opts = {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + tenantToken,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify(body),
+    };
+    if (signal) opts.signal = signal;
+    var resp = await fetch(FEISHU_API + "/drive/v1/metas/batch_query", opts);
+    var data = await resp.json().catch(function () { return {}; });
+    if (data.code !== 0) {
+      throw new Error(data.msg || "metas/batch_query failed");
+    }
+    var d = data.data || {};
+    return {
+      metas: d.metas || [],
+      failed_list: d.failed_list || [],
+    };
+  }
+
+  /** Grant edit permission by Feishu user_id (userid). Requires docs:permission.member:create (or docs:doc / drive:drive). Document may need 「添加文档应用」 for tenant token. */
+  async function feishuGrantEditByUserId(tenantToken, docToken, userId, signal) {
+    if (!userId || !String(userId).trim()) return true;
+    userId = String(userId).trim();
+    var url =
+      FEISHU_API +
+      "/drive/v1/permissions/" +
+      encodeURIComponent(docToken) +
+      "/members?type=docx";
+    var opts = {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + tenantToken,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify({
+        member_type: "userid",
+        member_id: userId,
+        perm: "edit",
+        type: "user",
+      }),
+    };
+    if (signal) opts.signal = signal;
+    var resp = await fetch(url, opts);
+    var data = await resp.json().catch(function () { return {}; });
+    if (data.code !== 0) {
+      pluginLog(
+        "warn",
+        "Feishu grant edit failed (" + (data.code || "?") + "): " + (data.msg || resp.status)
+      );
+      return false;
+    }
+    pluginLog("info", "Feishu granted edit to userid: " + userId);
+    return true;
+  }
+
   // ===================== Feishu: Title & Utility =====================
 
   async function generateTitle(docContent, cfg) {
@@ -3326,8 +3492,27 @@
         full_content: docContent,
       });
 
+      var editorUid = (cfg.feishu && cfg.feishu.default_editor_userid || "").trim();
+      if (editorUid) {
+        try {
+          var granted = await feishuGrantEditByUserId(token, result.token, editorUid, signal);
+          if (!granted) showToast(L.feishuGrantEditFail, "warn", 7000);
+        } catch (ge) {
+          pluginLog("warn", "Feishu grant edit: " + ge.message);
+          showToast(L.feishuGrantEditFail, "warn", 7000);
+        }
+      }
+
+      _feishuEditState = {
+        sessionKey: sessionKey,
+        title: title,
+        feishu_doc_token: result.token,
+        feishu_doc_url: result.url,
+      };
+
       removeFeishuProgress(progressEl);
       showFeishuSuccess(title, result.url);
+      showFeishuEditBar();
 
     } catch (e) {
       removeFeishuProgress(progressEl);
@@ -3437,6 +3622,98 @@
 
   var _docMgrState = { query: "", page: 1 };
   var DOC_PAGE_SIZE = 10;
+  var FEISHU_META_BATCH = 100;
+
+  function docMgrToolbarHtml(displayCount) {
+    return (
+      '<div class="ai-docmgr-status ai-docmgr-status-row">' +
+      '<span class="ai-docmgr-count">' +
+      escHTML(L.feishuDocCount.replace("{count}", String(displayCount))) +
+      "</span>" +
+      '<button type="button" class="ai-docmgr-refresh">' +
+      escHTML(L.feishuDocRefresh) +
+      "</button>" +
+      "</div>"
+    );
+  }
+
+  function attachDocMgrRefresh(container) {
+    var btn = container.querySelector(".ai-docmgr-refresh");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      refreshFeishuDocTitles(container, btn);
+    });
+  }
+
+  async function refreshFeishuDocTitles(container, btn) {
+    if (btn.disabled) return;
+    var sessions = loadFeishuSessions();
+    var keys = Object.keys(sessions);
+    var pairs = [];
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      var s = sessions[k];
+      if (s && s.feishu_doc_token) {
+        pairs.push({ sessionKey: k, doc_token: s.feishu_doc_token });
+      }
+    }
+    if (pairs.length === 0) {
+      showToast(L.feishuDocRefreshNothing, "info", 4000);
+      return;
+    }
+    btn.disabled = true;
+    var origText = btn.textContent;
+    btn.textContent = L.feishuDocRefreshing;
+    try {
+      var token = await getFeishuTenantToken();
+      var synced = 0;
+      for (var j = 0; j < pairs.length; j += FEISHU_META_BATCH) {
+        var slice = pairs.slice(j, j + FEISHU_META_BATCH);
+        var req = slice.map(function (p) {
+          return { doc_token: p.doc_token, doc_type: "docx" };
+        });
+        var batch = await feishuBatchQueryMetas(token, req, null);
+        var byToken = {};
+        for (var m = 0; m < batch.metas.length; m++) {
+          var meta = batch.metas[m];
+          if (meta && meta.doc_token) byToken[meta.doc_token] = meta;
+        }
+        for (var p = 0; p < slice.length; p++) {
+          var pair = slice[p];
+          var meta = byToken[pair.doc_token];
+          if (!meta) continue;
+          var sess = sessions[pair.sessionKey];
+          if (!sess) continue;
+          synced++;
+          var rawTitle = meta.title != null ? meta.title : meta.name;
+          if (rawTitle != null && String(rawTitle).trim()) {
+            sess.title = String(rawTitle).trim();
+          }
+          var nu = meta.url || meta.doc_url || meta.link;
+          if (nu) sess.feishu_doc_url = nu;
+        }
+        if (batch.failed_list && batch.failed_list.length) {
+          pluginLog("warn", "Feishu batch_query failed_list: " + JSON.stringify(batch.failed_list));
+        }
+      }
+      saveFeishuSessions(sessions);
+      if (_feishuEditState && _feishuEditState.sessionKey) {
+        var upd = sessions[_feishuEditState.sessionKey];
+        if (upd) {
+          _feishuEditState.title = upd.title || _feishuEditState.title;
+          if (upd.feishu_doc_url) _feishuEditState.feishu_doc_url = upd.feishu_doc_url;
+          showFeishuEditBar();
+        }
+      }
+      showToast(L.feishuDocRefreshDone.replace("{n}", String(synced)), "success", 3500);
+      renderDocList(container);
+    } catch (e) {
+      pluginLog("warn", "Feishu refresh titles: " + e.message);
+      showToast(L.feishuDocRefreshFail + e.message, "error", 5000);
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
+  }
 
   function showFeishuDocManager() {
     var old = document.querySelector(".ai-edit-overlay.ai-docmgr-overlay");
@@ -3532,13 +3809,17 @@
       return;
     }
 
+    var toolbarCount = totalCount === 0 ? keys.length : totalCount;
+
     if (totalCount === 0) {
-      container.innerHTML = '<div class="ai-docmgr-empty">' + escHTML(L.feishuDocNoMatch) + '</div>';
+      container.innerHTML =
+        docMgrToolbarHtml(toolbarCount) +
+        '<div class="ai-docmgr-empty">' + escHTML(L.feishuDocNoMatch) + "</div>";
+      attachDocMgrRefresh(container);
       return;
     }
 
-    var html = '<div class="ai-docmgr-status">' +
-      escHTML(L.feishuDocCount.replace("{count}", totalCount)) + '</div>';
+    var html = docMgrToolbarHtml(toolbarCount);
     html += '<div class="ai-docmgr-list">';
 
     for (var i = 0; i < pageItems.length; i++) {
@@ -3592,6 +3873,8 @@
     }
 
     container.innerHTML = html;
+
+    attachDocMgrRefresh(container);
 
     var prevBtn = container.querySelector(".ai-docmgr-prev");
     var nextBtn = container.querySelector(".ai-docmgr-next");
@@ -3850,6 +4133,17 @@
 
       _feishuEditState.feishu_doc_token = result.token;
       _feishuEditState.feishu_doc_url = result.url;
+
+      var editorUid2 = (cfg.feishu && cfg.feishu.default_editor_userid || "").trim();
+      if (editorUid2) {
+        try {
+          var granted2 = await feishuGrantEditByUserId(token, result.token, editorUid2, signal);
+          if (!granted2) showToast(L.feishuGrantEditFail, "warn", 7000);
+        } catch (ge2) {
+          pluginLog("warn", "Feishu grant edit: " + ge2.message);
+          showToast(L.feishuGrantEditFail, "warn", 7000);
+        }
+      }
 
       removeFeishuProgress(progressEl);
       showToast(L.feishuDocSaved, "success");
@@ -4172,6 +4466,77 @@
     return xml || _wr("");
   }
 
+  // --- Markdown pipe table → OOXML w:tbl (header + separator row + body) ---
+  function _splitTableRow(line) {
+    var t = line.trim();
+    if (!/^\|/.test(t)) return null;
+    var parts = t.split("|");
+    if (parts.length < 2) return null;
+    var cells = [];
+    for (var k = 1; k < parts.length; k++) cells.push(parts[k].trim());
+    return cells;
+  }
+
+  function _isTableSeparatorRow(line) {
+    var t = line.trim();
+    if (!/^\|/.test(t)) return false;
+    if (t.indexOf("-") < 0 && t.indexOf(":") < 0) return false;
+    return /^[\|\s\-:]+$/.test(t);
+  }
+
+  function _looksLikeTableRow(line) {
+    return /^\s*\|[^\n]+\|/.test(line) || /^\s*\|[^\n]+\|\s*$/.test(line.trim());
+  }
+
+  function _buildTableXml(headerCells, bodyRows, imgMap) {
+    if (!headerCells || headerCells.length === 0) return "";
+    var nCol = headerCells.length;
+    function normRow(row) {
+      var r = row ? row.slice() : [];
+      while (r.length < nCol) r.push("");
+      while (r.length > nCol) r.pop();
+      return r;
+    }
+    headerCells = normRow(headerCells);
+    for (var bi = 0; bi < bodyRows.length; bi++) bodyRows[bi] = normRow(bodyRows[bi]);
+
+    var colW = Math.max(1200, Math.floor(8640 / nCol));
+    var grid = "";
+    for (var g = 0; g < nCol; g++) grid += '<w:gridCol w:w="' + colW + '"/>';
+    var tblB =
+      '<w:tblBorders>' +
+      '<w:top w:val="single" w:sz="4" w:space="0" w:color="BBBBBB"/>' +
+      '<w:left w:val="single" w:sz="4" w:space="0" w:color="BBBBBB"/>' +
+      '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="BBBBBB"/>' +
+      '<w:right w:val="single" w:sz="4" w:space="0" w:color="BBBBBB"/>' +
+      '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="DDDDDD"/>' +
+      '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="DDDDDD"/>' +
+      "</w:tblBorders>";
+
+    function tc(cellText, isHeader) {
+      var pPr = isHeader ? '<w:pStyle w:val="TableHeader"/>' : "";
+      return "<w:tc><w:tcPr><w:tcW w:w=\"" + colW + '" w:type="dxa"/></w:tcPr>' +
+        _wp(_inlineXml(cellText, imgMap), pPr) + "</w:tc>";
+    }
+
+    function tr(rowCells, isHeader) {
+      var inner = "";
+      for (var c = 0; c < rowCells.length; c++) inner += tc(rowCells[c], isHeader);
+      var trPr = isHeader ? "<w:trPr><w:tblHeader/></w:trPr>" : "";
+      return "<w:tr>" + trPr + inner + "</w:tr>";
+    }
+
+    var out =
+      '<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblCellMar>' +
+      '<w:top w:w="80" w:type="dxa"/><w:left w:w="120" w:type="dxa"/>' +
+      '<w:bottom w:w="80" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tblCellMar>' +
+      tblB + "</w:tblPr><w:tblGrid>" + grid + "</w:tblGrid>" +
+      tr(headerCells, true);
+    for (var r = 0; r < bodyRows.length; r++) out += tr(bodyRows[r], false);
+    out += "</w:tbl>";
+    return out;
+  }
+
   // --- Block-level Markdown → OOXML body ---
   function _mdToBodyXml(md, imgMap) {
     var lines = md.split("\n"), xml = "", i = 0;
@@ -4182,13 +4547,21 @@
       var hm = L.match(/^(#{1,6})\s+(.*)/);
       if (hm) { xml += _wp(_inlineXml(hm[2], imgMap), '<w:pStyle w:val="Heading' + hm[1].length + '"/>'); i++; continue; }
 
-      if (L.match(/^```/)) {
+      // Fenced code / mermaid / html: preserve opening ```lang and closing ``` so Feishu import can recover markdown blocks
+      if (L.match(/^```/) || L.match(/^~~~+/)) {
+        var openFence = L.replace(/\s+$/, "");
         var code = ""; i++;
-        while (i < lines.length && !lines[i].match(/^```/)) { code += (code ? "\n" : "") + lines[i]; i++; }
+        var closeRe = openFence.charAt(0) === "~" ? /^~~~+/ : /^```/;
+        while (i < lines.length && !lines[i].match(closeRe)) { code += (code ? "\n" : "") + lines[i]; i++; }
+        var closeFence = (i < lines.length) ? lines[i].replace(/\s+$/, "") : (openFence.charAt(0) === "~" ? "~~~" : "```");
+        var rpCode = '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>';
+        xml += _wp(_wr(openFence, rpCode), '<w:pStyle w:val="CodeBlock"/>');
         var cl = code.split("\n");
         for (var c = 0; c < cl.length; c++)
-          xml += _wp(_wr(cl[c], '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>'), '<w:pStyle w:val="CodeBlock"/>');
-        i++; continue;
+          xml += _wp(_wr(cl[c], rpCode), '<w:pStyle w:val="CodeBlock"/>');
+        xml += _wp(_wr(closeFence, rpCode), '<w:pStyle w:val="CodeBlock"/>');
+        i++;
+        continue;
       }
 
       var imgLineMatch = L.match(/^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/) || L.match(/^\s*<img[^>]+src\s*=\s*["']([^"']+)["'][^>]*>\s*$/i);
@@ -4229,9 +4602,49 @@
         i++; continue;
       }
 
-      if (L.match(/^\|.*\|/)) {
-        if (i + 1 < lines.length && lines[i + 1].match(/^\|[\s\-:]+\|/)) i++;
-        else { xml += _wp(_inlineXml(L, imgMap)); }
+      if (_looksLikeTableRow(L)) {
+        var hdr = _splitTableRow(L);
+        if (!hdr || hdr.length === 0) {
+          xml += _wp(_inlineXml(L, imgMap));
+          i++; continue;
+        }
+        var j = i + 1;
+        if (j < lines.length && _isTableSeparatorRow(lines[j])) {
+          var bodyA = [];
+          j++;
+          while (j < lines.length) {
+            var LB = lines[j];
+            if (!LB.trim()) break;
+            if (_isTableSeparatorRow(LB)) { j++; continue; }
+            if (!_looksLikeTableRow(LB)) break;
+            var ca = _splitTableRow(LB);
+            if (!ca) break;
+            bodyA.push(ca);
+            j++;
+          }
+          xml += _buildTableXml(hdr, bodyA, imgMap);
+          i = j;
+          continue;
+        }
+        // No |---| separator: consecutive pipe rows → first row header (Typora 仍渲染的常见写法)
+        var bodyB = [];
+        j = i + 1;
+        while (j < lines.length) {
+          var LB2 = lines[j];
+          if (!LB2.trim()) break;
+          if (_isTableSeparatorRow(LB2)) break;
+          if (!_looksLikeTableRow(LB2)) break;
+          var cb = _splitTableRow(LB2);
+          if (!cb) break;
+          bodyB.push(cb);
+          j++;
+        }
+        if (bodyB.length > 0) {
+          xml += _buildTableXml(hdr, bodyB, imgMap);
+          i = j;
+          continue;
+        }
+        xml += _wp(_inlineXml(L, imgMap));
         i++; continue;
       }
 
@@ -4262,6 +4675,9 @@
     '<w:style w:type="paragraph" w:styleId="CodeBlock"><w:name w:val="Code Block"/>' +
     '<w:pPr><w:shd w:val="clear" w:fill="F5F5F5"/><w:spacing w:line="280" w:lineRule="exact"/></w:pPr>' +
     '<w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="20"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="TableHeader"><w:name w:val="Table Header"/>' +
+    '<w:pPr><w:shd w:val="clear" w:fill="EEEEEE"/></w:pPr>' +
+    '<w:rPr><w:b/><w:sz w:val="22"/></w:rPr></w:style>' +
     '</w:styles>';
 
   var _NUM = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +

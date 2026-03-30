@@ -303,6 +303,77 @@
     return xml || _wr("");
   }
 
+  // --- Markdown pipe table → OOXML w:tbl (header + separator row + body) ---
+  function _splitTableRow(line) {
+    var t = line.trim();
+    if (!/^\|/.test(t)) return null;
+    var parts = t.split("|");
+    if (parts.length < 2) return null;
+    var cells = [];
+    for (var k = 1; k < parts.length; k++) cells.push(parts[k].trim());
+    return cells;
+  }
+
+  function _isTableSeparatorRow(line) {
+    var t = line.trim();
+    if (!/^\|/.test(t)) return false;
+    if (t.indexOf("-") < 0 && t.indexOf(":") < 0) return false;
+    return /^[\|\s\-:]+$/.test(t);
+  }
+
+  function _looksLikeTableRow(line) {
+    return /^\s*\|[^\n]+\|/.test(line) || /^\s*\|[^\n]+\|\s*$/.test(line.trim());
+  }
+
+  function _buildTableXml(headerCells, bodyRows, imgMap) {
+    if (!headerCells || headerCells.length === 0) return "";
+    var nCol = headerCells.length;
+    function normRow(row) {
+      var r = row ? row.slice() : [];
+      while (r.length < nCol) r.push("");
+      while (r.length > nCol) r.pop();
+      return r;
+    }
+    headerCells = normRow(headerCells);
+    for (var bi = 0; bi < bodyRows.length; bi++) bodyRows[bi] = normRow(bodyRows[bi]);
+
+    var colW = Math.max(1200, Math.floor(8640 / nCol));
+    var grid = "";
+    for (var g = 0; g < nCol; g++) grid += '<w:gridCol w:w="' + colW + '"/>';
+    var tblB =
+      '<w:tblBorders>' +
+      '<w:top w:val="single" w:sz="4" w:space="0" w:color="BBBBBB"/>' +
+      '<w:left w:val="single" w:sz="4" w:space="0" w:color="BBBBBB"/>' +
+      '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="BBBBBB"/>' +
+      '<w:right w:val="single" w:sz="4" w:space="0" w:color="BBBBBB"/>' +
+      '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="DDDDDD"/>' +
+      '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="DDDDDD"/>' +
+      "</w:tblBorders>";
+
+    function tc(cellText, isHeader) {
+      var pPr = isHeader ? '<w:pStyle w:val="TableHeader"/>' : "";
+      return "<w:tc><w:tcPr><w:tcW w:w=\"" + colW + '" w:type="dxa"/></w:tcPr>' +
+        _wp(_inlineXml(cellText, imgMap), pPr) + "</w:tc>";
+    }
+
+    function tr(rowCells, isHeader) {
+      var inner = "";
+      for (var c = 0; c < rowCells.length; c++) inner += tc(rowCells[c], isHeader);
+      var trPr = isHeader ? "<w:trPr><w:tblHeader/></w:trPr>" : "";
+      return "<w:tr>" + trPr + inner + "</w:tr>";
+    }
+
+    var out =
+      '<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblCellMar>' +
+      '<w:top w:w="80" w:type="dxa"/><w:left w:w="120" w:type="dxa"/>' +
+      '<w:bottom w:w="80" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tblCellMar>' +
+      tblB + "</w:tblPr><w:tblGrid>" + grid + "</w:tblGrid>" +
+      tr(headerCells, true);
+    for (var r = 0; r < bodyRows.length; r++) out += tr(bodyRows[r], false);
+    out += "</w:tbl>";
+    return out;
+  }
+
   // --- Block-level Markdown → OOXML body ---
   function _mdToBodyXml(md, imgMap) {
     var lines = md.split("\n"), xml = "", i = 0;
@@ -313,13 +384,21 @@
       var hm = L.match(/^(#{1,6})\s+(.*)/);
       if (hm) { xml += _wp(_inlineXml(hm[2], imgMap), '<w:pStyle w:val="Heading' + hm[1].length + '"/>'); i++; continue; }
 
-      if (L.match(/^```/)) {
+      // Fenced code / mermaid / html: preserve opening ```lang and closing ``` so Feishu import can recover markdown blocks
+      if (L.match(/^```/) || L.match(/^~~~+/)) {
+        var openFence = L.replace(/\s+$/, "");
         var code = ""; i++;
-        while (i < lines.length && !lines[i].match(/^```/)) { code += (code ? "\n" : "") + lines[i]; i++; }
+        var closeRe = openFence.charAt(0) === "~" ? /^~~~+/ : /^```/;
+        while (i < lines.length && !lines[i].match(closeRe)) { code += (code ? "\n" : "") + lines[i]; i++; }
+        var closeFence = (i < lines.length) ? lines[i].replace(/\s+$/, "") : (openFence.charAt(0) === "~" ? "~~~" : "```");
+        var rpCode = '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>';
+        xml += _wp(_wr(openFence, rpCode), '<w:pStyle w:val="CodeBlock"/>');
         var cl = code.split("\n");
         for (var c = 0; c < cl.length; c++)
-          xml += _wp(_wr(cl[c], '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>'), '<w:pStyle w:val="CodeBlock"/>');
-        i++; continue;
+          xml += _wp(_wr(cl[c], rpCode), '<w:pStyle w:val="CodeBlock"/>');
+        xml += _wp(_wr(closeFence, rpCode), '<w:pStyle w:val="CodeBlock"/>');
+        i++;
+        continue;
       }
 
       var imgLineMatch = L.match(/^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/) || L.match(/^\s*<img[^>]+src\s*=\s*["']([^"']+)["'][^>]*>\s*$/i);
@@ -360,9 +439,49 @@
         i++; continue;
       }
 
-      if (L.match(/^\|.*\|/)) {
-        if (i + 1 < lines.length && lines[i + 1].match(/^\|[\s\-:]+\|/)) i++;
-        else { xml += _wp(_inlineXml(L, imgMap)); }
+      if (_looksLikeTableRow(L)) {
+        var hdr = _splitTableRow(L);
+        if (!hdr || hdr.length === 0) {
+          xml += _wp(_inlineXml(L, imgMap));
+          i++; continue;
+        }
+        var j = i + 1;
+        if (j < lines.length && _isTableSeparatorRow(lines[j])) {
+          var bodyA = [];
+          j++;
+          while (j < lines.length) {
+            var LB = lines[j];
+            if (!LB.trim()) break;
+            if (_isTableSeparatorRow(LB)) { j++; continue; }
+            if (!_looksLikeTableRow(LB)) break;
+            var ca = _splitTableRow(LB);
+            if (!ca) break;
+            bodyA.push(ca);
+            j++;
+          }
+          xml += _buildTableXml(hdr, bodyA, imgMap);
+          i = j;
+          continue;
+        }
+        // No |---| separator: consecutive pipe rows → first row header (Typora 仍渲染的常见写法)
+        var bodyB = [];
+        j = i + 1;
+        while (j < lines.length) {
+          var LB2 = lines[j];
+          if (!LB2.trim()) break;
+          if (_isTableSeparatorRow(LB2)) break;
+          if (!_looksLikeTableRow(LB2)) break;
+          var cb = _splitTableRow(LB2);
+          if (!cb) break;
+          bodyB.push(cb);
+          j++;
+        }
+        if (bodyB.length > 0) {
+          xml += _buildTableXml(hdr, bodyB, imgMap);
+          i = j;
+          continue;
+        }
+        xml += _wp(_inlineXml(L, imgMap));
         i++; continue;
       }
 
@@ -393,6 +512,9 @@
     '<w:style w:type="paragraph" w:styleId="CodeBlock"><w:name w:val="Code Block"/>' +
     '<w:pPr><w:shd w:val="clear" w:fill="F5F5F5"/><w:spacing w:line="280" w:lineRule="exact"/></w:pPr>' +
     '<w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="20"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="TableHeader"><w:name w:val="Table Header"/>' +
+    '<w:pPr><w:shd w:val="clear" w:fill="EEEEEE"/></w:pPr>' +
+    '<w:rPr><w:b/><w:sz w:val="22"/></w:rPr></w:style>' +
     '</w:styles>';
 
   var _NUM = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +

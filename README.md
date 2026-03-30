@@ -101,6 +101,7 @@ Ask AI to generate a flowchart — it outputs HTML/CSS/SVG code that Typora rend
 - **Pure JS DOCX** — In-memory Markdown→DOCX conversion with image embedding, zero external dependencies (no Pandoc)
 - **Session Management** — Same document overwrites previous version; different documents are isolated
 - **Document Manager** — Browse, search (title + full text), paginate, edit, and delete archived Feishu docs
+- **Refresh Titles** — In the document manager, sync cached titles and links from Feishu via `drive/v1/metas/batch_query` after you rename docs online
 - **Operation Log** — View log, one-click copy, one-click clear
 
 ### Productivity
@@ -157,6 +158,12 @@ The install script will:
 ```bash
 sudo bash bin/uninstall.sh
 ```
+
+### Where settings are stored
+
+- **Inside Typora**: The plugin keeps a copy in `localStorage` (key `typora-ai-edit-config`) so the UI works offline in the WebView.
+- **On disk (recommended backup)**: Whenever you click **Save** in **AI Edit Settings**, the full configuration is also written to **`~/.typora-ai-edit.local.json`** on your Mac. That file stays in your home directory and is **not** part of this repository.
+- **GitHub / clones**: The repo only ships empty placeholders in `DEFAULT_CONFIG` (no real API keys, Feishu secrets, or personal `user_id`). Do not commit `typora-ai-edit.local.json` if you ever copy it into the project folder — it is listed in `.gitignore`.
 
 ## Quick Start
 
@@ -264,12 +271,12 @@ sudo cp src/typora-ai-edit.js \
 | Authentication | Local `oauth-cli-kit` token or API Key |
 | Editor Interaction | `window.getSelection()` + `execCommand` + CodeMirror API |
 | Document Content | `window.File.editor.getMarkdown()` (Typora internal) |
-| Config Storage | `localStorage` |
+| Config Storage | `localStorage` + mirror `~/.typora-ai-edit.local.json` on Save (see above) |
 | Image Handling | Local → base64, web → download, canvas fallback, auto-compress |
 | Context Menu | Custom HTML overlay on `contextmenu` event |
 | Diagram Rendering | AI generates HTML/CSS/SVG or Mermaid → Typora renders inline |
 | Feishu Online Doc | Pure JS DOCX generation (CRC32+ZIP+OOXML) with embedded images (DOM canvas + multi-fallback) → `fetch` upload → import API |
-| Document Manager | Session-based doc list with search, pagination, local editing, save-back, delete |
+| Document Manager | Session-based doc list with search, pagination, local editing, save-back, delete, **Refresh titles** (`metas/batch_query`) |
 | Tavily Web Search | Tavily Search API (`/search`) → results injected into prompt as context before AI call |
 | Operation Log | In-memory log store (500 entries) + modal panel with copy/clear |
 
@@ -286,6 +293,23 @@ Please also review our [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Polic
 ## Changelog
 
 <details open>
+<summary><strong>v0.9.2</strong> — Feishu document manager: refresh titles (2026-03-30)</summary>
+
+- **Refresh titles** — Feishu Documents dialog adds a **Refresh titles** button; calls `POST /drive/v1/metas/batch_query` to pull latest `title` / URL for archived doc tokens and updates `localStorage` sessions
+- **Edit bar sync** — If you are editing a linked doc, the top save bar title updates after a successful refresh
+- **Scope** — Requires Feishu app permissions such as `drive:drive.metadata:readonly` or `drive:drive`
+
+</details>
+
+<details>
+<summary><strong>v0.9.1</strong> — Private settings file & Feishu collaborator by user_id (2026-03-30)</summary>
+
+- **Private settings mirror** — Saving the settings panel writes the full config to `~/.typora-ai-edit.local.json` (outside the repo); load merges that file over `localStorage` so local edits to the JSON take effect
+- **Feishu default editor** — Auto-grant edit permission uses Open API `member_type: "userid"` (not email); repository defaults keep empty placeholders only
+
+</details>
+
+<details>
 <summary><strong>v0.9.0</strong> — Tavily Web Search Integration (2026-03-26)</summary>
 
 - **New: Tavily search integration** — Use Tavily as an independent web search engine; search results (summary + top 5 sources) are injected into the AI prompt as reference material

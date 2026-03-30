@@ -190,3 +190,72 @@
       pluginLog("warn", "Feishu delete error: " + e.message);
     }
   }
+
+  /**
+   * Batch query cloud doc metadata (title, url). Requires drive:drive or drive:drive.metadata:readonly.
+   * @param {Array<{doc_token:string,doc_type?:string}>} requestDocs doc_type defaults to docx
+   */
+  async function feishuBatchQueryMetas(tenantToken, requestDocs, signal) {
+    if (!requestDocs || !requestDocs.length) return { metas: [], failed_list: [] };
+    var body = {
+      request_docs: requestDocs.map(function (d) {
+        return { doc_token: d.doc_token, doc_type: d.doc_type || "docx" };
+      }),
+      with_url: true,
+    };
+    var opts = {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + tenantToken,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify(body),
+    };
+    if (signal) opts.signal = signal;
+    var resp = await fetch(FEISHU_API + "/drive/v1/metas/batch_query", opts);
+    var data = await resp.json().catch(function () { return {}; });
+    if (data.code !== 0) {
+      throw new Error(data.msg || "metas/batch_query failed");
+    }
+    var d = data.data || {};
+    return {
+      metas: d.metas || [],
+      failed_list: d.failed_list || [],
+    };
+  }
+
+  /** Grant edit permission by Feishu user_id (userid). Requires docs:permission.member:create (or docs:doc / drive:drive). Document may need 「添加文档应用」 for tenant token. */
+  async function feishuGrantEditByUserId(tenantToken, docToken, userId, signal) {
+    if (!userId || !String(userId).trim()) return true;
+    userId = String(userId).trim();
+    var url =
+      FEISHU_API +
+      "/drive/v1/permissions/" +
+      encodeURIComponent(docToken) +
+      "/members?type=docx";
+    var opts = {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + tenantToken,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify({
+        member_type: "userid",
+        member_id: userId,
+        perm: "edit",
+        type: "user",
+      }),
+    };
+    if (signal) opts.signal = signal;
+    var resp = await fetch(url, opts);
+    var data = await resp.json().catch(function () { return {}; });
+    if (data.code !== 0) {
+      pluginLog(
+        "warn",
+        "Feishu grant edit failed (" + (data.code || "?") + "): " + (data.msg || resp.status)
+      );
+      return false;
+    }
+    pluginLog("info", "Feishu granted edit to userid: " + userId);
+    return true;
+  }

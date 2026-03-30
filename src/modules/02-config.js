@@ -80,30 +80,58 @@
       app_id: "",
       app_secret: "",
       target_folder: "",
+      default_editor_userid: "",
     },
   };
 
+  function mergeConfigLayer(base, patch) {
+    if (!patch || typeof patch !== "object") return base;
+    return {
+      ...base,
+      ...patch,
+      prompts: { ...base.prompts, ...(patch.prompts || {}) },
+      shortcuts: { ...base.shortcuts, ...(patch.shortcuts || {}) },
+      openai_compat: { ...base.openai_compat, ...(patch.openai_compat || {}) },
+      tavily: { ...base.tavily, ...(patch.tavily || {}) },
+      feishu: { ...base.feishu, ...(patch.feishu || {}) },
+    };
+  }
+
   function loadConfig() {
+    var cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
     try {
-      const saved = localStorage.getItem(CONFIG_KEY);
+      var saved = localStorage.getItem(CONFIG_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_CONFIG,
-          ...parsed,
-          prompts: { ...DEFAULT_CONFIG.prompts, ...(parsed.prompts || {}) },
-          shortcuts: { ...DEFAULT_CONFIG.shortcuts, ...(parsed.shortcuts || {}) },
-          openai_compat: { ...DEFAULT_CONFIG.openai_compat, ...(parsed.openai_compat || {}) },
-          tavily: { ...DEFAULT_CONFIG.tavily, ...(parsed.tavily || {}) },
-          feishu: { ...DEFAULT_CONFIG.feishu, ...(parsed.feishu || {}) },
-        };
+        cfg = mergeConfigLayer(cfg, JSON.parse(saved));
       }
     } catch (e) {
-      console.error("[AI Edit] loadConfig:", e);
+      console.error("[AI Edit] loadConfig localStorage:", e);
     }
-    return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    try {
+      var privPath = typeof getPrivateConfigPath === "function" ? getPrivateConfigPath() : null;
+      if (privPath && typeof readFileContent === "function") {
+        var raw = readFileContent(privPath);
+        if (raw && raw.trim()) {
+          cfg = mergeConfigLayer(cfg, JSON.parse(raw));
+        }
+      }
+    } catch (e2) {
+      console.warn("[AI Edit] loadConfig private file:", e2);
+    }
+    return cfg;
   }
 
   function saveConfig(cfg) {
-    localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+    var json = JSON.stringify(cfg);
+    localStorage.setItem(CONFIG_KEY, json);
+    try {
+      var privPath = typeof getPrivateConfigPath === "function" ? getPrivateConfigPath() : null;
+      if (privPath && typeof writeFileContent === "function") {
+        if (!writeFileContent(privPath, JSON.stringify(cfg, null, 2))) {
+          console.warn("[AI Edit] Private config not written (no file backend):", privPath);
+        }
+      }
+    } catch (e) {
+      console.warn("[AI Edit] saveConfig private file:", e);
+    }
   }

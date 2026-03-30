@@ -87,8 +87,27 @@
         full_content: docContent,
       });
 
+      var editorUid = (cfg.feishu && cfg.feishu.default_editor_userid || "").trim();
+      if (editorUid) {
+        try {
+          var granted = await feishuGrantEditByUserId(token, result.token, editorUid, signal);
+          if (!granted) showToast(L.feishuGrantEditFail, "warn", 7000);
+        } catch (ge) {
+          pluginLog("warn", "Feishu grant edit: " + ge.message);
+          showToast(L.feishuGrantEditFail, "warn", 7000);
+        }
+      }
+
+      _feishuEditState = {
+        sessionKey: sessionKey,
+        title: title,
+        feishu_doc_token: result.token,
+        feishu_doc_url: result.url,
+      };
+
       removeFeishuProgress(progressEl);
       showFeishuSuccess(title, result.url);
+      showFeishuEditBar();
 
     } catch (e) {
       removeFeishuProgress(progressEl);
@@ -198,6 +217,98 @@
 
   var _docMgrState = { query: "", page: 1 };
   var DOC_PAGE_SIZE = 10;
+  var FEISHU_META_BATCH = 100;
+
+  function docMgrToolbarHtml(displayCount) {
+    return (
+      '<div class="ai-docmgr-status ai-docmgr-status-row">' +
+      '<span class="ai-docmgr-count">' +
+      escHTML(L.feishuDocCount.replace("{count}", String(displayCount))) +
+      "</span>" +
+      '<button type="button" class="ai-docmgr-refresh">' +
+      escHTML(L.feishuDocRefresh) +
+      "</button>" +
+      "</div>"
+    );
+  }
+
+  function attachDocMgrRefresh(container) {
+    var btn = container.querySelector(".ai-docmgr-refresh");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      refreshFeishuDocTitles(container, btn);
+    });
+  }
+
+  async function refreshFeishuDocTitles(container, btn) {
+    if (btn.disabled) return;
+    var sessions = loadFeishuSessions();
+    var keys = Object.keys(sessions);
+    var pairs = [];
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      var s = sessions[k];
+      if (s && s.feishu_doc_token) {
+        pairs.push({ sessionKey: k, doc_token: s.feishu_doc_token });
+      }
+    }
+    if (pairs.length === 0) {
+      showToast(L.feishuDocRefreshNothing, "info", 4000);
+      return;
+    }
+    btn.disabled = true;
+    var origText = btn.textContent;
+    btn.textContent = L.feishuDocRefreshing;
+    try {
+      var token = await getFeishuTenantToken();
+      var synced = 0;
+      for (var j = 0; j < pairs.length; j += FEISHU_META_BATCH) {
+        var slice = pairs.slice(j, j + FEISHU_META_BATCH);
+        var req = slice.map(function (p) {
+          return { doc_token: p.doc_token, doc_type: "docx" };
+        });
+        var batch = await feishuBatchQueryMetas(token, req, null);
+        var byToken = {};
+        for (var m = 0; m < batch.metas.length; m++) {
+          var meta = batch.metas[m];
+          if (meta && meta.doc_token) byToken[meta.doc_token] = meta;
+        }
+        for (var p = 0; p < slice.length; p++) {
+          var pair = slice[p];
+          var meta = byToken[pair.doc_token];
+          if (!meta) continue;
+          var sess = sessions[pair.sessionKey];
+          if (!sess) continue;
+          synced++;
+          var rawTitle = meta.title != null ? meta.title : meta.name;
+          if (rawTitle != null && String(rawTitle).trim()) {
+            sess.title = String(rawTitle).trim();
+          }
+          var nu = meta.url || meta.doc_url || meta.link;
+          if (nu) sess.feishu_doc_url = nu;
+        }
+        if (batch.failed_list && batch.failed_list.length) {
+          pluginLog("warn", "Feishu batch_query failed_list: " + JSON.stringify(batch.failed_list));
+        }
+      }
+      saveFeishuSessions(sessions);
+      if (_feishuEditState && _feishuEditState.sessionKey) {
+        var upd = sessions[_feishuEditState.sessionKey];
+        if (upd) {
+          _feishuEditState.title = upd.title || _feishuEditState.title;
+          if (upd.feishu_doc_url) _feishuEditState.feishu_doc_url = upd.feishu_doc_url;
+          showFeishuEditBar();
+        }
+      }
+      showToast(L.feishuDocRefreshDone.replace("{n}", String(synced)), "success", 3500);
+      renderDocList(container);
+    } catch (e) {
+      pluginLog("warn", "Feishu refresh titles: " + e.message);
+      showToast(L.feishuDocRefreshFail + e.message, "error", 5000);
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
+  }
 
   function showFeishuDocManager() {
     var old = document.querySelector(".ai-edit-overlay.ai-docmgr-overlay");
@@ -293,13 +404,17 @@
       return;
     }
 
+    var toolbarCount = totalCount === 0 ? keys.length : totalCount;
+
     if (totalCount === 0) {
-      container.innerHTML = '<div class="ai-docmgr-empty">' + escHTML(L.feishuDocNoMatch) + '</div>';
+      container.innerHTML =
+        docMgrToolbarHtml(toolbarCount) +
+        '<div class="ai-docmgr-empty">' + escHTML(L.feishuDocNoMatch) + "</div>";
+      attachDocMgrRefresh(container);
       return;
     }
 
-    var html = '<div class="ai-docmgr-status">' +
-      escHTML(L.feishuDocCount.replace("{count}", totalCount)) + '</div>';
+    var html = docMgrToolbarHtml(toolbarCount);
     html += '<div class="ai-docmgr-list">';
 
     for (var i = 0; i < pageItems.length; i++) {
@@ -353,6 +468,8 @@
     }
 
     container.innerHTML = html;
+
+    attachDocMgrRefresh(container);
 
     var prevBtn = container.querySelector(".ai-docmgr-prev");
     var nextBtn = container.querySelector(".ai-docmgr-next");
@@ -611,6 +728,17 @@
 
       _feishuEditState.feishu_doc_token = result.token;
       _feishuEditState.feishu_doc_url = result.url;
+
+      var editorUid2 = (cfg.feishu && cfg.feishu.default_editor_userid || "").trim();
+      if (editorUid2) {
+        try {
+          var granted2 = await feishuGrantEditByUserId(token, result.token, editorUid2, signal);
+          if (!granted2) showToast(L.feishuGrantEditFail, "warn", 7000);
+        } catch (ge2) {
+          pluginLog("warn", "Feishu grant edit: " + ge2.message);
+          showToast(L.feishuGrantEditFail, "warn", 7000);
+        }
+      }
 
       removeFeishuProgress(progressEl);
       showToast(L.feishuDocSaved, "success");

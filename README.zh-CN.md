@@ -101,6 +101,7 @@
 - **纯 JS DOCX 引擎** — 内存中 Markdown→DOCX 转换（含图片嵌入），零外部依赖（无需 Pandoc）
 - **Session 管理** — 同文档覆盖更新，不同文档独立管理
 - **文档管理器** — 浏览、搜索（标题 + 全文）、分页、编辑、删除已归档的飞书文档
+- **刷新标题** — 在文档管理器中从飞书批量拉取最新标题与链接（`drive/v1/metas/batch_query`），与线上一致
 - **操作日志面板** — 查看日志、一键复制、一键清除
 
 ### 生产力
@@ -157,6 +158,12 @@ sudo bash bin/install.sh
 ```bash
 sudo bash bin/uninstall.sh
 ```
+
+### 配置保存在哪里
+
+- **Typora 内**：插件在 `localStorage`（键名 `typora-ai-edit-config`）中保存一份，保证 WebView 内可用。
+- **本机磁盘**：在 **AI 编辑设置** 中点击 **保存** 时，会把**完整配置**同步写入用户主目录下的 **`~/.typora-ai-edit.local.json`**，该文件不在仓库内。
+- **推送到 GitHub**：仓库里的 `DEFAULT_CONFIG` 仅含空占位（不含真实 API Key、飞书密钥或个人 `user_id`）。请勿将含隐私的 `typora-ai-edit.local.json` 提交进仓库；若误放在项目根目录，已在 `.gitignore` 中忽略。
 
 ## 快速开始
 
@@ -264,12 +271,12 @@ sudo cp src/typora-ai-edit.js \
 | 认证 | 读取 `oauth-cli-kit` 本地 Token 文件或 API Key |
 | 编辑器交互 | `window.getSelection()` + `execCommand` + CodeMirror API |
 | 全文获取 | `window.File.editor.getMarkdown()`（Typora 内部 API） |
-| 配置存储 | `localStorage` |
+| 配置存储 | `localStorage`；保存设置时镜像到 `~/.typora-ai-edit.local.json`（见上文） |
 | 图片处理 | 本地 → base64，网络 → 下载，canvas 兜底，自动压缩 |
 | 右键菜单 | 拦截 `contextmenu` 事件，自定义 HTML 浮层 |
 | 图表渲染 | AI 生成 HTML/CSS/SVG 或 Mermaid → Typora 内联渲染 |
 | 飞书在线文档 | 纯 JS DOCX 生成（CRC32+ZIP+OOXML，含图片嵌入：DOM canvas + 多重回退）→ `fetch` 上传 → 导入 API |
-| 文档管理器 | Session 文档列表 + 搜索 + 分页 + 本地编辑 + 回写覆盖 + 删除 |
+| 文档管理器 | Session 文档列表 + 搜索 + 分页 + 本地编辑 + 回写覆盖 + 删除 + **刷新标题**（`metas/batch_query`） |
 | Tavily 联网搜索 | Tavily Search API（`/search`）→ 搜索结果注入 prompt 作为上下文，再调 AI |
 | 操作日志 | 内存日志存储（500 条）+ 模态面板，支持复制/清除 |
 
@@ -286,6 +293,23 @@ sudo cp src/typora-ai-edit.js \
 ## 更新日志
 
 <details open>
+<summary><strong>v0.9.2</strong> — 飞书文档管理：刷新标题 (2026-03-30)</summary>
+
+- **刷新标题**：飞书文档管理对话框增加「刷新标题」按钮，调用 `POST /drive/v1/metas/batch_query` 批量获取云文档最新标题与链接，并写回本地 session
+- **编辑条同步**：若正在本地编辑某篇已关联文档，刷新成功后顶部「保存到飞书」条会同步新标题
+- **权限**：飞书应用需具备 `drive:drive.metadata:readonly` 或 `drive:drive` 等云文档元数据相关权限
+
+</details>
+
+<details>
+<summary><strong>v0.9.1</strong> — 私有配置文件与飞书按 user_id 授权 (2026-03-30)</summary>
+
+- **私有配置镜像**：在设置面板保存时，将完整配置写入 `~/.typora-ai-edit.local.json`（仓库外）；加载时在该文件与 `localStorage` 之上合并，便于本机备份与手工编辑
+- **飞书默认可编辑用户**：自动加协作者改为 Open API `member_type: "userid"`（不再使用邮箱）；仓库默认配置仅保留空占位
+
+</details>
+
+<details>
 <summary><strong>v0.9.0</strong> — Tavily 联网搜索集成 (2026-03-26)</summary>
 
 - **新增：Tavily 搜索集成** — 使用 Tavily 作为独立联网搜索引擎；搜索结果（摘要 + 前 5 条来源）注入 AI prompt 作为参考资料

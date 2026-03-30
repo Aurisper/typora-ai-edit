@@ -27,6 +27,7 @@
     cfg.feishu.app_id = document.getElementById("ai-s-feishu-appid").value.trim();
     cfg.feishu.app_secret = document.getElementById("ai-s-feishu-secret").value.trim();
     cfg.feishu.target_folder = document.getElementById("ai-s-feishu-folder").value.trim();
+    cfg.feishu.default_editor_userid = document.getElementById("ai-s-feishu-editor-userid").value.trim();
     saveConfig(cfg);
     pluginLog("info", "Settings saved");
     overlay.remove();
@@ -51,6 +52,7 @@
     document.getElementById("ai-s-feishu-appid").value = "";
     document.getElementById("ai-s-feishu-secret").value = "";
     document.getElementById("ai-s-feishu-folder").value = "";
+    document.getElementById("ai-s-feishu-editor-userid").value = "";
     showToast(L.restored, "info");
   }
 

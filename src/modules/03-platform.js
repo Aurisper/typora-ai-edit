@@ -75,6 +75,42 @@
     return null;
   }
 
+  /** Write UTF-8 text; returns true on success. */
+  function writeFileContent(filePath, content) {
+    if (window.bridge && window.bridge.callSync) {
+      try {
+        window.bridge.callSync("path.writeText", filePath, content);
+        return true;
+      } catch (e) {
+        console.warn("[AI Edit] bridge.writeText failed:", e);
+      }
+    }
+    if (window.reqnode) {
+      try {
+        var fs = window.reqnode("fs");
+        if (fs && fs.writeFileSync) {
+          fs.writeFileSync(filePath, content, "utf8");
+          return true;
+        }
+      } catch (e) {
+        console.warn("[AI Edit] reqnode write failed:", e);
+      }
+    }
+    try {
+      if (typeof require === "function") {
+        require("fs").writeFileSync(filePath, content, "utf8");
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /** Full settings JSON outside the repo (never commit). */
+  function getPrivateConfigPath() {
+    var home = getHomePath();
+    return home ? home + "/.typora-ai-edit.local.json" : null;
+  }
+
   function readToken() {
     try {
       var p = getTokenPath();
